@@ -1,6 +1,6 @@
 "use server";
 
-import { refresh } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { firstError, idSchema } from "@/lib/validation";
@@ -16,7 +16,16 @@ function rpcFail(error: { code?: string; message: string }, context: string): Ac
   return dbFail(error, context);
 }
 
-const nameSchema = z.string().trim().min(1, "Le nom est obligatoire.").max(80, "80 caractères maximum.");
+/**
+ * La liste de mes groupes est chargée par le layout, que Next.js ne recharge pas lors d'une
+ * redirection. Après avoir créé, rejoint, quitté ou supprimé un groupe, on l'invalide
+ * (type "layout" = le layout racine et toutes les pages en dessous).
+ */
+function revalidateAll() {
+  revalidatePath("/", "layout");
+}
+
+const nameSchema =z.string().trim().min(1, "Le nom est obligatoire.").max(80, "80 caractères maximum.");
 const codeSchema = z.string().trim().min(6, "Code trop court.").max(40);
 
 export async function createGroup(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
@@ -25,6 +34,7 @@ export async function createGroup(_prev: ActionResult | null, formData: FormData
   if (!name.success) return fail(firstError(name.error));
   const { data, error } = await supabase.rpc("create_group", { group_name: name.data });
   if (error) return rpcFail(error, "createGroup");
+  revalidateAll();
   redirect(`/groupes/${data}`);
 }
 
@@ -34,6 +44,7 @@ export async function joinGroup(_prev: ActionResult | null, formData: FormData):
   if (!code.success) return fail(firstError(code.error));
   const { data, error } = await supabase.rpc("join_group", { code: code.data });
   if (error) return rpcFail(error, "joinGroup");
+  revalidateAll();
   redirect(`/groupes/${data}`);
 }
 
@@ -42,6 +53,7 @@ export async function leaveGroup(groupId: string): Promise<ActionResult> {
   if (!idSchema.safeParse(groupId).success) return fail("Groupe invalide.");
   const { error } = await supabase.rpc("leave_group", { gid: groupId });
   if (error) return rpcFail(error, "leaveGroup");
+  revalidateAll();
   redirect("/groupes");
 }
 
@@ -93,5 +105,6 @@ export async function deleteGroup(groupId: string): Promise<ActionResult> {
   const { data, error } = await supabase.from("groups").delete().eq("id", groupId).select("id");
   if (error) return dbFail(error, "deleteGroup");
   if (!data?.length) return fail("Réservé aux administrateurs du groupe.");
+  revalidateAll();
   redirect("/groupes");
 }
