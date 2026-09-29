@@ -29,6 +29,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="fr" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full">
+        {/* Chrome signale très tôt que l'app est installable (beforeinstallprompt), parfois avant que
+            React soit prêt : ce petit script le capte immédiatement et le garde pour le bouton "Installer". */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__installPrompt=e;window.dispatchEvent(new Event('installprompt-ready'));});",
+          }}
+        />
         <ServiceWorkerRegister />
         {children}
       </body>

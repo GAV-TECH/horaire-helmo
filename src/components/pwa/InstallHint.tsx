@@ -13,16 +13,24 @@ export function InstallHint() {
   const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null);
 
   useEffect(() => {
-    const onPrompt = (e: Event) => {
-      e.preventDefault(); // on garde l'évènement pour proposer notre propre bouton
-      setPromptEvent(e as InstallPromptEvent);
+    // L'évènement a été capté dès le chargement par le petit script du layout racine (window.__installPrompt).
+    const w = window as Window & { __installPrompt?: InstallPromptEvent };
+    const usePrompt = () => {
+      if (!w.__installPrompt) return;
+      setPromptEvent(w.__installPrompt);
       setMode("prompt");
     };
-    window.addEventListener("beforeinstallprompt", onPrompt);
+    const onInstalled = () => setMode("installed");
+    window.addEventListener("installprompt-ready", usePrompt);
+    window.addEventListener("appinstalled", onInstalled);
     // Détection après l'affichage (navigator n'existe pas côté serveur).
-    const timer = setTimeout(() => setMode((m) => (m !== "hidden" ? m : isStandalone() ? "installed" : isIos() ? "ios" : "menu")), 0);
+    const timer = setTimeout(() => {
+      usePrompt();
+      setMode((m) => (m !== "hidden" ? m : isStandalone() ? "installed" : isIos() ? "ios" : "menu"));
+    }, 0);
     return () => {
-      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("installprompt-ready", usePrompt);
+      window.removeEventListener("appinstalled", onInstalled);
       clearTimeout(timer);
     };
   }, []);
