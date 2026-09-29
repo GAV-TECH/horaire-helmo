@@ -42,7 +42,10 @@ export function GroupDetail({ groupId, deadlines, lists, now }: Props) {
     return (
       <div className="py-16 text-center">
         <p className="font-semibold">Groupe introuvable.</p>
-        <p className="mt-1 text-sm text-zinc-500">Tu n&apos;en fais peut-être plus partie.</p>
+        <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-500">
+          Seuls ses membres peuvent le voir. Si on t&apos;a invité, utilise le lien d&apos;invitation ou saisis le code dans « Mes
+          groupes ».
+        </p>
         <Link href="/groupes" className={`${buttonClass.secondary} mt-4`}>
           Mes groupes
         </Link>
