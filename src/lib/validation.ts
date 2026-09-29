@@ -82,12 +82,14 @@ export const todoListSchema = z
       sessionKey: trimmed(1000, "La séance"),
       sessionStart: isoField,
     }),
+    // Projet : nom, cours facultatif, partage éventuel avec un groupe.
+    z.object({ scope: z.literal("project"), title: trimmed(200, "Le nom du projet"), courseName: optionalText(300), groupId: groupField }),
   ])
   .transform((l) => ({
     title: l.title,
     scope: l.scope,
     course_name: l.scope === "global" ? null : l.courseName,
-    course_key: l.scope === "global" ? null : courseKey(l.courseName),
+    course_key: l.scope === "global" || !l.courseName ? null : courseKey(l.courseName),
     session_key: l.scope === "session" ? l.sessionKey : null,
     session_start: l.scope === "session" ? l.sessionStart : null,
     // Une liste liée à une séance reste privée (les UID de séances diffèrent d'un étudiant à l'autre).

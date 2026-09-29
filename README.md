@@ -2,7 +2,7 @@
 
 Application web qui importe l'horaire HELMO (flux iCalendar `.ics`) et permet de l'enrichir : annotations, deadlines, to-do lists, rappels et groupes d'étudiants.
 
-> **État actuel : phase 4 (toutes les phases prévues).** Comptes, lien `.ics` personnel chiffré, synchronisation avec détection des changements, notes, deadlines, to-do lists, vue « Cette semaine », rappels avec notifications Web Push, PWA installable, **groupes d'étudiants avec partage et temps réel**.
+> **État actuel : phase 4 (toutes les phases prévues).** Comptes, lien `.ics` personnel chiffré, synchronisation avec détection des changements, échéances (évaluations détectées automatiquement), tâches façon To Do, projets, vue « Cette semaine », rappels avec notifications Web Push, PWA installable, **groupes d'étudiants avec partage et temps réel**.
 
 ## Prérequis
 
@@ -20,7 +20,7 @@ npm install
 ## 2. Configuration Supabase (à faire une fois, dans l'interface web)
 
 1. **Créer le projet** : *New project*, région **Europe (Frankfurt)**. Note le mot de passe de la base (il ne sert pas à l'app, mais garde-le).
-2. **Créer les tables** : menu **SQL Editor** → *New query* → colle tout le contenu de [`supabase/migrations/0001_phase2.sql`](supabase/migrations/0001_phase2.sql) → **Run**. Résultat attendu : *Success. No rows returned*. Dans **Table Editor**, tu dois voir `profiles`, `ics_sources`, `sessions`, `notes`, `deadlines`, `todo_lists`, `todo_items`, `todo_completions`, toutes marquées « RLS enabled ».
+2. **Créer les tables** : menu **SQL Editor** → *New query* → colle tout le contenu de [`supabase/migrations/0001_phase2.sql`](supabase/migrations/0001_phase2.sql) → **Run**. Résultat attendu : *Success. No rows returned*. Dans **Table Editor**, tu dois voir `profiles`, `ics_sources`, `sessions`, `notes` (supprimée plus tard par la migration 0005), `deadlines`, `todo_lists`, `todo_items`, `todo_completions`, toutes marquées « RLS enabled ».
 3. **Adresses du site** : **Authentication → URL Configuration**
    - *Site URL* : `http://localhost:3000`
    - *Redirect URLs* : ajoute `http://localhost:3000/**`
@@ -123,16 +123,20 @@ Tester seul avec deux comptes : Chrome normal (compte 1) + fenêtre de navigatio
 
 SQL Editor → *New query* → colle [`supabase/migrations/0004_taches_perso.sql`](supabase/migrations/0004_taches_perso.sql) → **Run**. Ce script ajoute les marqueurs personnels « Important » (étoile) et « Ma journée ». Sans lui, les pages Tâches, Semaine et Groupes ne peuvent pas charger les tâches.
 
+## 8. Projets (à faire une fois)
+
+SQL Editor → *New query* → colle [`supabase/migrations/0005_projets.sql`](supabase/migrations/0005_projets.sql) → **Run**. Ce script autorise les listes de type « projet » et **supprime la table des notes de séance, avec son contenu**.
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire
 - Le lien `.ics` est chiffré (AES-256-GCM) avant d'être stocké dans `ics_sources`, une table **sans aucune politique RLS** : seule la clé secrète du serveur peut la lire. Le lien n'est jamais renvoyé au navigateur ni écrit dans les logs.
 - À l'ouverture de l'horaire, le serveur resynchronise si la dernière synchro date de plus de **5 minutes**. Le bouton **Actualiser** appelle `POST /api/schedule/sync` (au plus une fois toutes les 30 s).
 - Chaque synchro compare le nouvel horaire à l'ancien (`src/lib/sessions/diff.ts`) : séance **déplacée**, **changement de local**, **annulée** (ou disparue du flux), **ajoutée** dans les 14 jours → badge orange jusqu'à ce que tu cliques « OK, vu ».
-- Les séances ne sont jamais supprimées : les notes gardent leur séance.
+- Les séances ne sont jamais supprimées : les listes de tâches liées à une séance la retrouvent toujours.
 
-### Notes
-Une note est liée à une séance par son UID. Si l'UID change, elle est retrouvée par **nom du cours + heure de début**. Si rien ne correspond, elle apparaît dans **Notes → Notes orphelines**.
+### Projets
+Un projet est une liste de tâches d'un type particulier (`scope = 'project'`) : chaque tâche peut avoir une échéance (jalon), des rappels, et le projet peut être partagé avec un groupe (chacun coche pour soi). L'onglet **Projets** montre l'avancement et la prochaine échéance de chaque projet. Les anciennes notes de séance ont été retirées (migration 0005).
 
 ### Rappels et notifications
 - Un rappel vise une séance, une deadline ou une tâche : **15 min / 1 h / 1 jour avant**, ou une **date précise**. Un rappel relatif suit sa cible si elle est déplacée (l'heure est recalculée par la vue `reminder_schedule`).
@@ -154,13 +158,12 @@ Une note est liée à une séance par son UID. Si l'UID change, elle est retrouv
 - Un rappel partagé notifie tous les membres ; chacun peut le **couper pour lui** (`reminder_mutes`).
 - Modifier/supprimer : l'auteur ou un admin du groupe. Tous les membres peuvent ajouter des tâches à une liste partagée.
 - **Temps réel** : Supabase Realtime prévient les navigateurs connectés d'un changement (en respectant le RLS), et la page se recharge depuis le serveur (`router.refresh()`).
-- **Confidentialité** : séances, notes, lien `.ics`, abonnements push restent invisibles aux autres membres ; ils ne voient que ton nom affiché et ce que tu partages (vérifié par des tests RLS à 3 utilisateurs).
+- **Confidentialité** : séances, lien `.ics`, abonnements push restent invisibles aux autres membres ; ils ne voient que ton nom affiché et ce que tu partages (vérifié par des tests RLS à 3 utilisateurs).
 
 ### Sécurité
 - **RLS** sur toutes les tables : chacun ne voit que ses données.
 - Les server actions vérifient l'utilisateur et valident les entrées avec **zod**.
 - Seuls les liens `https://mon-espace.helmo.be/…` sont acceptés (sinon le serveur pourrait être utilisé pour télécharger n'importe quelle URL, y compris interne).
-- Les notes markdown ne peuvent pas contenir de HTML ni de script.
 
 ## Structure
 
@@ -173,14 +176,14 @@ scripts/setup-push.mjs        Génère les clés VAPID et le secret de la tâche
 public/sw.js                  Service worker : reçoit les notifications
 src/proxy.ts                  Rafraîchit la session et protège les pages (ex-middleware)
 src/app/(auth)/               Connexion, inscription, mot de passe oublié
-src/app/(app)/                Pages connectées : horaire, semaine, tâches, deadlines, groupes, rappels, notes, réglages
+src/app/(app)/                Pages connectées : horaire, semaine, tâches, échéances, groupes, projets, rappels, réglages
 src/app/api/schedule/sync/    Route API de synchronisation
 src/app/auth/confirm/         Arrivée depuis les liens reçus par e-mail
 src/components/               Interface (schedule/, items/, deadlines/, todos/, settings/, auth/)
 src/lib/actions/              Server actions (écritures), toujours validées par zod
 src/lib/data/                 Lecture des données et types
 src/lib/ics/                  Téléchargement, parsing, masquage des secrets
-src/lib/sessions/             Comparaison des synchros et rattachement des notes (fonctions pures testées)
+src/lib/sessions/             Comparaison des synchros et rattachement des listes de séance (fonctions pures testées)
 src/lib/supabase/             Clients Supabase (utilisateur / admin)
 src/lib/sync.ts               Synchronisation d'un utilisateur
 src/lib/crypto.ts             Chiffrement du lien .ics

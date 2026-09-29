@@ -49,6 +49,8 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 - [x] Format HELMO réel : SUMMARY = `Cours : type / ENSEIGNANTS / local (CO)` ; HELMO envoie chaque séance **deux fois** (dédoublonnée dans `parseIcs`, anciennes copies `UID#début` supprimées par `legacyDuplicates` à la synchro). `parseCourseTitle` / `courseGroupKey` / `sameCourse` / `coursesFrom` dans `src/lib/courses.ts` : `courseColor` et les listes de cours travaillent par COURS. ⚠️ `session.courseKey` (intitulé complet normalisé) reste l'identifiant de secours des notes/listes : ne pas le changer.
 - [x] Page Échéances (`/deadlines`, `src/components/deadlines/`) : évaluations détectées dans l'horaire + deadlines, compte à rebours et importance (`src/lib/deadlines.ts`), édition sur place (`DeadlineEditor`, raccourci « Prochaine séance »).
 
+- [x] Projets (`/projets`, `src/components/projects/`) : liste de tâches `scope = 'project'` (migration 0005), avancement et prochaine échéance (`src/lib/projects.ts`), actions partagées avec la page Tâches via `useTaskMutations`. Notes de séance **supprimées** (table `notes` droppée en 0005). Compte à rebours et importance sans couleur d'urgence (choix utilisateur) ; les couleurs PAR COURS restent.
+
 ## Pistes suivantes
 
 - Déploiement Vercel (push sur téléphone, accès pour les camarades) + mettre à jour Site URL / Redirect URLs dans Supabase.

@@ -76,6 +76,17 @@ describe("partage avec un groupe", () => {
     expect(deadlineSchema.safeParse({ title: "x", date: "2025-10-10", groupId: "pas-un-id" }).success).toBe(false);
   });
 
+  it("un projet : cours facultatif, partage possible", () => {
+    expect(todoListSchema.parse({ scope: "project", title: "TFE", courseName: "", groupId: g })).toMatchObject({
+      scope: "project",
+      course_name: null,
+      course_key: null,
+      group_id: g,
+    });
+    expect(todoListSchema.parse({ scope: "project", title: "Projet béton", courseName: "Béton" }).course_key).toBe("beton");
+    expect(todoListSchema.safeParse({ scope: "project", title: " " }).success).toBe(false);
+  });
+
   it("une liste liée à une séance reste toujours privée", () => {
     const list = todoListSchema.parse({
       scope: "session", title: "x", courseName: "Réseaux", sessionKey: "k", sessionStart: "2025-10-06T06:30:00.000Z", groupId: g,

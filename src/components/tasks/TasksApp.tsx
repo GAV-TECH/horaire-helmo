@@ -1,9 +1,6 @@
 "use client";
 
-import { useMemo, useOptimistic, useState, useTransition } from "react";
-import type { ActionResult } from "@/lib/actions/context";
-import { quickAddTask, renameTodoItem, setTodoDue, setTodoImportant, setTodoMyDay } from "@/lib/actions/tasks";
-import { deleteTodoItem, setTodoDone } from "@/lib/actions/todos";
+import { useMemo, useState } from "react";
 import { courseColor, parseCourseTitle } from "@/lib/courses";
 import type { Course, TodoList } from "@/lib/data/types";
 import {
@@ -17,14 +14,14 @@ import {
   type PlannedGroup,
   type TaskEntry,
 } from "@/lib/tasks";
-import { brusselsToIso, dayKey } from "@/lib/time";
+import { dayKey } from "@/lib/time";
 import { formatSessionDate } from "@/components/items/format";
 import { useGroups } from "@/components/groups/GroupsContext";
 import { ListMenu } from "./ListHeader";
 import { NewListForm } from "./NewListForm";
 import { TaskDetail } from "./TaskDetail";
 import { TaskRow } from "./TaskRow";
-import { applyTaskPatch, type TaskPatch } from "./optimistic";
+import { useTaskMutations } from "./useTaskMutations";
 
 type Props = { lists: TodoList[]; courses: Course[]; now: number };
 /** Sur téléphone, un seul écran à la fois. */
@@ -37,16 +34,14 @@ type Screen = "lists" | "tasks" | "detail";
  */
 export function TasksApp({ lists: serverLists, courses, now }: Props) {
   const { groups } = useGroups();
-  const [lists, applyOptimistic] = useOptimistic(serverLists, applyTaskPatch);
-  const [, startTransition] = useTransition();
+  const today = dayKey(now);
+  const { lists, error, toggleDone, toggleImportant, toggleMyDay, setDue, rename, remove: removeTask, add } = useTaskMutations(serverLists, today);
   const [view, setView] = useState<string>("jour");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("tasks");
   const [showDone, setShowDone] = useState(false);
   const [creatingList, setCreatingList] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  const today = dayKey(now);
 
   const entries = useMemo(() => flattenTasks(lists), [lists]);
   const visible = useMemo(() => tasksForView(entries, view, today), [entries, view, today]);
@@ -58,28 +53,10 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
   const hasSessionLists = lists.some((l) => l.scope === "session");
   const openCount = (v: string) => tasksForView(entries, v, today).filter((e) => !e.item.done).length;
 
-  /** Affiche le changement tout de suite, puis l'enregistre ; en cas d'échec, React annule l'affichage. */
-  const mutate = (patch: TaskPatch | null, action: () => Promise<ActionResult>) =>
-    startTransition(async () => {
-      if (patch) applyOptimistic(patch);
-      const r = await action();
-      setError(r.ok ? null : r.error);
-    });
-
-  const toggleDone = (e: TaskEntry) => mutate({ itemId: e.item.id, changes: { done: !e.item.done } }, () => setTodoDone(e.item.id, !e.item.done));
-  const toggleImportant = (e: TaskEntry) =>
-    mutate({ itemId: e.item.id, changes: { important: !e.item.important } }, () => setTodoImportant(e.item.id, !e.item.important));
-  const toggleMyDay = (e: TaskEntry) => {
-    const on = e.item.myDay !== today;
-    mutate({ itemId: e.item.id, changes: { myDay: on ? today : null } }, () => setTodoMyDay(e.item.id, on));
-  };
-  const setDue = (e: TaskEntry, date: string) =>
-    mutate({ itemId: e.item.id, changes: { dueAt: date ? brusselsToIso(date, "23:59") : null } }, () => setTodoDue(e.item.id, date));
-  const rename = (e: TaskEntry, title: string) => mutate({ itemId: e.item.id, changes: { title } }, () => renameTodoItem(e.item.id, title));
   const remove = (e: TaskEntry) => {
     setSelectedId(null);
     setScreen("tasks");
-    mutate(null, () => deleteTodoItem(e.item.id));
+    removeTask(e);
   };
 
   const openView = (id: string) => {
@@ -98,11 +75,12 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
     const title = draft.trim();
     if (!title) return;
     setDraft("");
-    mutate(null, () => quickAddTask(title, currentList ? "liste" : view, currentList?.id));
+    add(title, view, currentList?.id);
   };
 
-  const privateLists = lists.filter((l) => l.groupId === null && l.scope !== "session");
-  const sharedLists = lists.filter((l) => l.groupId !== null);
+  const privateLists = lists.filter((l) => l.groupId === null && l.scope !== "session" && l.scope !== "project");
+  const sharedLists = lists.filter((l) => l.groupId !== null && l.scope !== "project");
+  const projects = lists.filter((l) => l.scope === "project");
   const title = currentList?.title ?? smart?.name ?? "Tâches";
   const group = currentList?.groupId ? groups.find((g) => g.id === currentList.groupId) : null;
 
@@ -153,6 +131,10 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
         {sharedLists.length > 0 && <NavTitle>Partagées</NavTitle>}
         {sharedLists.map((l) => (
           <NavItem key={l.id} active={view === l.id} onClick={() => openView(l.id)} icon={<ListDot list={l} />} label={l.title} count={openCount(l.id)} badge="👥" />
+        ))}
+        {projects.length > 0 && <NavTitle>Projets</NavTitle>}
+        {projects.map((l) => (
+          <NavItem key={l.id} active={view === l.id} onClick={() => openView(l.id)} icon="◆" label={l.title} count={openCount(l.id)} badge={l.groupId ? "👥" : undefined} />
         ))}
         <div className="mt-auto pt-3">
           {creatingList ? (
