@@ -1,7 +1,8 @@
 /**
  * Edge Function Supabase "send-reminders" (Deno).
  * Appelée chaque minute par pg_cron (voir supabase/cron.sql) :
- * 1. réserve les rappels arrivés à échéance (claim_due_reminders) ;
+ * 1. réserve les rappels arrivés à échéance (claim_due_reminders) : une ligne par destinataire
+ *    (l'auteur, ou chaque membre du groupe pour un rappel partagé, sauf ceux qui l'ont coupé) ;
  * 2. envoie une notification Web Push à chaque appareil de l'utilisateur ;
  * 3. supprime les abonnements qui n'existent plus (réponse 404/410).
  *
@@ -48,7 +49,7 @@ Deno.serve(async (req) => {
   const due = (data ?? []) as DueReminder[];
   if (due.length === 0) return Response.json({ claimed: 0, sent: 0 });
 
-  const userIds = [...new Set(due.map((r) => r.user_id))];
+  const userIds = [...new Set(due.map((r) => r.recipient_id))];
   const { data: subs, error: subsError } = await db
     .from("push_subscriptions")
     .select("id, user_id, endpoint, p256dh, auth")
@@ -68,7 +69,7 @@ Deno.serve(async (req) => {
     if (!notification) continue; // cible faite / annulée, ou rappel trop ancien
     const payload = JSON.stringify(notification);
     for (const sub of subs ?? []) {
-      if (sub.user_id !== reminder.user_id || gone.has(sub.id)) continue;
+      if (sub.user_id !== reminder.recipient_id || gone.has(sub.id)) continue;
       try {
         const result = await sendWebPush(sub, payload, vapid, { urgency: "high" });
         if (result.ok) sent++;

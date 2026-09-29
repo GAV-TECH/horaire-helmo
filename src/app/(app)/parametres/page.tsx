@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SettingsForms } from "@/components/settings/SettingsForms";
-import { PageTitle, buttonClass, cardClass } from "@/components/ui";
+import { PageTitle } from "@/components/ui";
+import { buttonClass, cardClass } from "@/components/styles";
 import { signOut } from "@/lib/actions/auth";
 import { requireUser } from "@/lib/auth";
 import { loadProfile } from "@/lib/data/queries";

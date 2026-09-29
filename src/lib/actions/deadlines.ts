@@ -14,8 +14,10 @@ export async function saveDeadline(_prev: ActionResult | null, formData: FormDat
   if (rawId) {
     const id = idSchema.safeParse(rawId);
     if (!id.success) return fail("Deadline invalide.");
-    const { error } = await supabase.from("deadlines").update(parsed.data).eq("id", id.data);
+    // .select() : on récupère les lignes modifiées ; 0 ligne = le RLS a refusé (ni auteur, ni admin).
+    const { data, error } = await supabase.from("deadlines").update(parsed.data).eq("id", id.data).select("id");
     if (error) return dbFail(error, "updateDeadline");
+    if (!data?.length) return fail("Seuls l'auteur et les admins du groupe peuvent modifier cette deadline.");
   } else {
     const { error } = await supabase.from("deadlines").insert(parsed.data);
     if (error) return dbFail(error, "createDeadline");
@@ -24,13 +26,15 @@ export async function saveDeadline(_prev: ActionResult | null, formData: FormDat
   return ok(rawId ? "Deadline modifiée." : "Deadline ajoutée.");
 }
 
+/** Terminée / pas terminée POUR MOI (chaque membre d'un groupe coche pour lui-même). */
 export async function setDeadlineDone(id: string, done: boolean): Promise<ActionResult> {
-  const { supabase } = await actionContext();
+  const { user, supabase } = await actionContext();
   if (!idSchema.safeParse(id).success) return fail("Deadline invalide.");
-  const { error } = await supabase
-    .from("deadlines")
-    .update({ done_at: done ? new Date().toISOString() : null })
-    .eq("id", id);
+  const { error } = done
+    ? await supabase
+        .from("deadline_completions")
+        .upsert({ deadline_id: id }, { onConflict: "deadline_id,user_id", ignoreDuplicates: true })
+    : await supabase.from("deadline_completions").delete().eq("deadline_id", id).eq("user_id", user.id);
   if (error) return dbFail(error, "setDeadlineDone");
   refresh();
   return ok();
@@ -39,8 +43,9 @@ export async function setDeadlineDone(id: string, done: boolean): Promise<Action
 export async function deleteDeadline(id: string): Promise<ActionResult> {
   const { supabase } = await actionContext();
   if (!idSchema.safeParse(id).success) return fail("Deadline invalide.");
-  const { error } = await supabase.from("deadlines").delete().eq("id", id);
+  const { data, error } = await supabase.from("deadlines").delete().eq("id", id).select("id");
   if (error) return dbFail(error, "deleteDeadline");
+  if (!data?.length) return fail("Seuls l'auteur et les admins du groupe peuvent supprimer cette deadline.");
   refresh();
   return ok();
 }

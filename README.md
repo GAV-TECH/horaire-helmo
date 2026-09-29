@@ -2,7 +2,7 @@
 
 Application web qui importe l'horaire HELMO (flux iCalendar `.ics`) et permet de l'enrichir : annotations, deadlines, to-do lists, rappels et groupes d'étudiants.
 
-> **État actuel : phase 3.** Comptes (e-mail + mot de passe), lien `.ics` personnel chiffré, synchronisation avec détection des changements, notes, deadlines, to-do lists, vue « Cette semaine », **rappels avec notifications Web Push, application installable (PWA)**.
+> **État actuel : phase 4 (toutes les phases prévues).** Comptes, lien `.ics` personnel chiffré, synchronisation avec détection des changements, notes, deadlines, to-do lists, vue « Cette semaine », rappels avec notifications Web Push, PWA installable, **groupes d'étudiants avec partage et temps réel**.
 
 ## Prérequis
 
@@ -106,6 +106,19 @@ Journaux de la fonction : dashboard → *Edge Functions* → *send-reminders* �
 
 > 📱 **Sur téléphone**, les notifications exigent une adresse **HTTPS** : `http://192.168.x.x:3000` ne suffit pas (seul `localhost` est toléré, sur le PC). Il faut déployer l'app (Vercel) — ce sera l'étape suivante. Sur iPhone, l'app doit en plus être **installée sur l'écran d'accueil** (Safari → Partager → *Sur l'écran d'accueil*).
 
+## 6. Groupes (phase 4, à faire une fois)
+
+1. **Tables** : SQL Editor → *New query* → colle [](supabase/migrations/0003_phase4.sql) → **Run**.
+2. **Juste après**, redéploie la fonction d'envoi (elle envoie maintenant une notification par membre) :
+   \Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+PS C:Usersgilledevhoraire-helmo> {"project_ref":"mlxgvpghjhqzfqsuekuw","functions":["send-reminders"],"dashboard_url":"https://supabase.com/dashboard/project/mlxgvpghjhqzfqsuekuw/functions","message":"Deployed Functions."}3. Relance .
+
+Tester seul avec deux comptes : Chrome normal (compte 1) + fenêtre de navigation privée (compte 2). Pour créer le 2e compte sans recevoir d'e-mail : *Authentication → Sign In / Providers → Email* → décocher *Confirm email* le temps du test.
+
+> Pour de vrais camarades, il faudra : l'app en ligne (Vercel) et un SMTP (ex. Resend) pour que Supabase puisse leur envoyer les e-mails de confirmation.
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire
@@ -122,6 +135,15 @@ Une note est liée à une séance par son UID. Si l'UID change, elle est retrouv
 - Chaque minute, **pg_cron** appelle l'**Edge Function** `send-reminders` (Supabase, Deno). Elle « réserve » les rappels dus (`claim_due_reminders`, jamais deux fois le même), puis envoie une notification Web Push à chaque appareil abonné. Pas d'envoi si la séance est annulée ou la tâche déjà faite.
 - Choix : une Edge Function + pg_cron plutôt qu'un cron Vercel, car le plan gratuit de Vercel ne lance ses crons qu'une fois par jour, et la fonction marche quel que soit l'hébergement de l'app.
 - Le chiffrement Web Push (RFC 8291) et la signature VAPID (RFC 8292) sont codés avec l'API standard Web Crypto (`supabase/functions/send-reminders/webpush.ts`), sans bibliothèque : le même fichier tourne dans Deno et dans Node, et il est validé par le vecteur de test officiel de la RFC.
+
+### Groupes et partage
+- Un groupe a des **administrateurs** (gèrent les membres, renomment, régénèrent le code, suppriment) et des **membres**. On rejoint avec un **code** (12 caractères) ou un **lien**  (avec confirmation). Si le dernier admin part, le membre le plus ancien le devient ; si le dernier membre part, le groupe est supprimé.
+- On partage des **deadlines**, des **listes de tâches** (toutes leurs tâches) et des **rappels** posés sur ces éléments (« pour tout le groupe »). Un élément partagé est lié au **groupe + date + nom de cours**, jamais à l'UID d'une séance personnelle (deux étudiants n'ont pas les mêmes UID). Une liste liée à une séance ne peut donc pas être partagée.
+- « Fait » est **par membre** (, ) : chacun coche pour soi, et voit « ✓ 2/4 · Alice, Bob ».
+- Un rappel partagé notifie tous les membres ; chacun peut le **couper pour lui** ().
+- Modifier/supprimer : l'auteur ou un admin du groupe. Tous les membres peuvent ajouter des tâches à une liste partagée.
+- **Temps réel** : Supabase Realtime prévient les navigateurs connectés d'un changement (en respectant le RLS), et la page se recharge depuis le serveur ().
+- **Confidentialité** : séances, notes, lien , abonnements push restent invisibles aux autres membres ; ils ne voient que ton nom affiché et ce que tu partages (vérifié par des tests RLS à 3 utilisateurs).
 
 ### Sécurité
 - **RLS** sur toutes les tables : chacun ne voit que ses données.
@@ -140,7 +162,7 @@ scripts/setup-push.mjs        Génère les clés VAPID et le secret de la tâche
 public/sw.js                  Service worker : reçoit les notifications
 src/proxy.ts                  Rafraîchit la session et protège les pages (ex-middleware)
 src/app/(auth)/               Connexion, inscription, mot de passe oublié
-src/app/(app)/                Pages connectées : horaire, semaine, tâches, deadlines, notes, réglages
+src/app/(app)/                Pages connectées : horaire, semaine, tâches, deadlines, groupes, rappels, notes, réglages
 src/app/api/schedule/sync/    Route API de synchronisation
 src/app/auth/confirm/         Arrivée depuis les liens reçus par e-mail
 src/components/               Interface (schedule/, items/, deadlines/, todos/, settings/, auth/)

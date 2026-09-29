@@ -6,7 +6,8 @@
 
 export type DueReminder = {
   id: string;
-  user_id: string;
+  /** Destinataire : l'auteur, ou chaque membre du groupe pour un rappel partagé. */
+  recipient_id: string;
   target_type: "session" | "deadline" | "todo";
   target_title: string | null;
   target_detail: string | null;

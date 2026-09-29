@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { deleteReminder } from "@/lib/actions/reminders";
+import { deleteReminder, setReminderMuted } from "@/lib/actions/reminders";
+import { canEdit } from "@/lib/groups";
+import { useGroups } from "@/components/groups/GroupsContext";
+import { SharedBadge } from "@/components/groups/share";
 import type { Reminder } from "@/lib/data/types";
 import { describeReminder, reminderStatus } from "@/lib/reminders";
 import { formatFr } from "@/lib/time";
@@ -66,7 +69,13 @@ function Group({ title, hint, empty, children }: { title: string; hint?: string;
 function ReminderRow({ reminder: r, past = false }: { reminder: Reminder; past?: boolean }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const { me, groups } = useGroups();
   const target = TARGET[r.targetType];
+  const run = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
+    startTransition(async () => {
+      const res = await fn();
+      setError(res.ok ? null : (res.error ?? "Erreur."));
+    });
 
   return (
     <li className={`flex items-start gap-2 rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-800 ${past ? "opacity-60" : ""}`}>
@@ -76,26 +85,24 @@ function ReminderRow({ reminder: r, past = false }: { reminder: Reminder; past?:
           {r.targetTitle ?? "(élément supprimé)"}
         </Link>
         <p className="text-xs text-zinc-500">
-          🔔 {r.fireAt ? formatFr(r.fireAt, "EEE d MMM 'à' HH:mm") : "—"} · {describeReminder(r)}
+          {r.groupId ? "👥" : "🔔"} {r.fireAt ? formatFr(r.fireAt, "EEE d MMM 'à' HH:mm") : "—"} · {describeReminder(r)}
           {r.targetDetail && ` · ${r.targetDetail}`}
+          {r.muted && " · coupé pour moi"}
           {past && r.targetDone && " · non envoyé (fait ou annulé)"}
         </p>
+        {r.groupId && <SharedBadge groupId={r.groupId} ownerId={r.ownerId} />}
         <ErrorText>{error}</ErrorText>
       </div>
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() =>
-          startTransition(async () => {
-            const res = await deleteReminder(r.id);
-            setError(res.ok ? null : res.error);
-          })
-        }
-        className={buttonClass.ghost}
-        aria-label="Supprimer ce rappel"
-      >
-        ✕
-      </button>
+      {r.groupId && !past && (
+        <button type="button" disabled={pending} onClick={() => run(() => setReminderMuted(r.id, !r.muted))} className={buttonClass.ghost}>
+          {r.muted ? "Réactiver" : "Couper pour moi"}
+        </button>
+      )}
+      {canEdit(r, me, groups) && (
+        <button type="button" disabled={pending} onClick={() => run(() => deleteReminder(r.id))} className={buttonClass.ghost} aria-label="Supprimer ce rappel">
+          ✕
+        </button>
+      )}
     </li>
   );
 }

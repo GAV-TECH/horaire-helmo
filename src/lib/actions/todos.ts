@@ -18,8 +18,10 @@ export async function createTodoList(_prev: ActionResult | null, formData: FormD
 export async function deleteTodoList(id: string): Promise<ActionResult> {
   const { supabase } = await actionContext();
   if (!idSchema.safeParse(id).success) return fail("Liste invalide.");
-  const { error } = await supabase.from("todo_lists").delete().eq("id", id); // les tâches suivent (on delete cascade)
+  // Les tâches suivent (on delete cascade). 0 ligne supprimée = refusé par le RLS.
+  const { data, error } = await supabase.from("todo_lists").delete().eq("id", id).select("id");
   if (error) return dbFail(error, "deleteTodoList");
+  if (!data?.length) return fail("Seuls l'auteur et les admins du groupe peuvent supprimer cette liste.");
   refresh();
   return ok();
 }
@@ -77,11 +79,11 @@ export async function addSessionTask(_prev: ActionResult | null, formData: FormD
 
 /** Coche / décoche une tâche pour l'utilisateur courant (une ligne dans todo_completions = fait). */
 export async function setTodoDone(itemId: string, done: boolean): Promise<ActionResult> {
-  const { supabase } = await actionContext();
+  const { user, supabase } = await actionContext();
   if (!idSchema.safeParse(itemId).success) return fail("Tâche invalide.");
   const { error } = done
     ? await supabase.from("todo_completions").upsert({ item_id: itemId }, { onConflict: "item_id,user_id", ignoreDuplicates: true })
-    : await supabase.from("todo_completions").delete().eq("item_id", itemId);
+    : await supabase.from("todo_completions").delete().eq("item_id", itemId).eq("user_id", user.id);
   if (error) return dbFail(error, "setTodoDone");
   refresh();
   return ok();
@@ -90,8 +92,27 @@ export async function setTodoDone(itemId: string, done: boolean): Promise<Action
 export async function deleteTodoItem(id: string): Promise<ActionResult> {
   const { supabase } = await actionContext();
   if (!idSchema.safeParse(id).success) return fail("Tâche invalide.");
-  const { error } = await supabase.from("todo_items").delete().eq("id", id);
+  const { data, error } = await supabase.from("todo_items").delete().eq("id", id).select("id");
   if (error) return dbFail(error, "deleteTodoItem");
+  if (!data?.length) return fail("Seuls l'auteur de la tâche, le propriétaire de la liste et les admins peuvent la supprimer.");
   refresh();
   return ok();
+}
+
+/** Partage une liste avec un groupe, ou la rend privée (groupId vide). Réservé au propriétaire de la liste. */
+export async function setListGroup(listId: string, groupId: string): Promise<ActionResult> {
+  const { user, supabase } = await actionContext();
+  if (!idSchema.safeParse(listId).success) return fail("Liste invalide.");
+  if (groupId && !idSchema.safeParse(groupId).success) return fail("Groupe invalide.");
+  const { data, error } = await supabase
+    .from("todo_lists")
+    .update({ group_id: groupId || null })
+    .eq("id", listId)
+    .eq("user_id", user.id)
+    .neq("scope", "session")
+    .select("id");
+  if (error) return dbFail(error, "setListGroup");
+  if (!data?.length) return fail("Seul le propriétaire peut changer le partage (et une liste de séance reste privée).");
+  refresh();
+  return ok(groupId ? "Liste partagée." : "Liste redevenue privée.");
 }

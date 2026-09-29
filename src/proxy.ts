@@ -39,7 +39,9 @@ export async function proxy(request: NextRequest) {
   if (!loggedIn && !isPublic && !isApi) {
     const target = request.nextUrl.clone();
     target.pathname = "/connexion";
-    target.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
+    // On garde aussi les paramètres (ex. le code d'un lien d'invitation) pour y revenir après connexion.
+    const back = pathname + request.nextUrl.search;
+    target.search = back === "/" ? "" : `?next=${encodeURIComponent(back)}`;
     return NextResponse.redirect(target);
   }
   if (loggedIn && pathname === "/connexion") {

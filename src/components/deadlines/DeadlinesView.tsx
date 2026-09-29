@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { saveDeadline } from "@/lib/actions/deadlines";
 import { PRIORITY_LABELS, type Course, type Deadline } from "@/lib/data/types";
 import { isoToBrusselsInputs } from "@/lib/time";
+import { SharePicker } from "@/components/groups/share";
 import { DeadlineRow } from "@/components/items/DeadlineRow";
 import { ActionMessage, Field, PageTitle, buttonClass, cardClass, inputClass, useFormAction } from "@/components/ui";
 
@@ -109,6 +110,7 @@ function DeadlineForm({ courses, editing, prefill }: { courses: Course[]; editin
       <Field label="Détails (facultatif)">
         <textarea name="details" rows={2} maxLength={5000} defaultValue={editing?.details ?? ""} className={inputClass} />
       </Field>
+      <SharePicker defaultValue={editing?.groupId ?? ""} />
       <ActionMessage result={result} />
       <div className="flex gap-2">
         <button type="submit" disabled={pending} className={buttonClass.primary}>

@@ -4,13 +4,24 @@ import { useOptimistic, useState, useTransition } from "react";
 import { deleteTodoItem, setTodoDone } from "@/lib/actions/todos";
 import type { TodoItem } from "@/lib/data/types";
 import { reminderStatus } from "@/lib/reminders";
+import { DoneBy } from "@/components/groups/share";
 import { ReminderControl } from "@/components/reminders/ReminderControl";
 import { useTargetReminders } from "@/components/reminders/RemindersContext";
 import { ErrorText, buttonClass } from "@/components/ui";
 import { formatDue } from "./format";
 
+type Props = {
+  item: TodoItem;
+  subtitle?: string;
+  now: number;
+  /** Groupe de la liste, si elle est partagée : affiche qui a fait la tâche. */
+  groupId?: string | null;
+  /** Masque la suppression quand le RLS la refuserait (ni auteur, ni propriétaire de la liste, ni admin). */
+  canDelete?: boolean;
+};
+
 /** Une tâche avec sa case à cocher. La coche s'affiche immédiatement (mise à jour "optimiste"). */
-export function TodoItemRow({ item, subtitle, now }: { item: TodoItem; subtitle?: string; now: number }) {
+export function TodoItemRow({ item, subtitle, now, groupId = null, canDelete = true }: Props) {
   // useOptimistic : affiche tout de suite la nouvelle valeur, puis se recale sur la vraie donnée
   // quand le serveur a répondu (et revient en arrière si l'action a échoué).
   const [done, setOptimisticDone] = useOptimistic(item.done);
@@ -61,9 +72,10 @@ export function TodoItemRow({ item, subtitle, now }: { item: TodoItem; subtitle?
             {subtitle}
           </p>
         )}
+        {groupId && <DoneBy groupId={groupId} doneBy={item.doneBy} />}
         {showReminders && (
           <div className="mt-1">
-            <ReminderControl targetType="todo" targetId={item.id} hasTime={item.dueAt !== null} startOpen />
+            <ReminderControl targetType="todo" targetId={item.id} hasTime={item.dueAt !== null} startOpen groupId={groupId} />
           </div>
         )}
         <ErrorText>{error}</ErrorText>
@@ -90,9 +102,11 @@ export function TodoItemRow({ item, subtitle, now }: { item: TodoItem; subtitle?
               🔔
             </button>
           )}
-          <button type="button" onClick={() => setConfirmDelete(true)} className={buttonClass.ghost} aria-label={`Supprimer « ${item.title} »`}>
-            ✕
-          </button>
+          {canDelete && (
+            <button type="button" onClick={() => setConfirmDelete(true)} className={buttonClass.ghost} aria-label={`Supprimer « ${item.title} »`}>
+              ✕
+            </button>
+          )}
         </span>
       )}
     </li>

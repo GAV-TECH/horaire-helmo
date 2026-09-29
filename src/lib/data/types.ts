@@ -13,7 +13,10 @@ export type Note = {
 
 export type Priority = 1 | 2 | 3;
 
-export type Deadline = {
+/** Éléments partageables : ownerId = auteur, groupId = groupe avec lequel c'est partagé (sinon privé). */
+type Shareable = { ownerId: string; groupId: string | null };
+
+export type Deadline = Shareable & {
   id: string;
   title: string;
   dueAt: string;
@@ -21,7 +24,10 @@ export type Deadline = {
   courseKey: string | null;
   priority: Priority;
   details: string | null;
+  /** Quand MOI je l'ai terminée (chaque membre coche pour lui-même). */
   doneAt: string | null;
+  /** Qui l'a terminée (utile pour une deadline partagée). */
+  doneBy: string[];
 };
 
 export type TodoScope = "global" | "course" | "session";
@@ -29,13 +35,16 @@ export type TodoScope = "global" | "course" | "session";
 export type TodoItem = {
   id: string;
   listId: string;
+  authorId: string;
   title: string;
   dueAt: string | null;
   position: number;
+  /** Faite par MOI. */
   done: boolean;
+  doneBy: string[];
 };
 
-export type TodoList = {
+export type TodoList = Shareable & {
   id: string;
   title: string;
   scope: TodoScope;
@@ -48,8 +57,10 @@ export type TodoList = {
 
 export type ReminderTarget = "session" | "deadline" | "todo";
 
-export type Reminder = {
+export type Reminder = Shareable & {
   id: string;
+  /** Rappel partagé que j'ai coupé pour moi. */
+  muted: boolean;
   targetType: ReminderTarget;
   targetId: string;
   /** Décalage avant la cible (ex. 60 = 1 h avant), ou null si date précise. */
@@ -62,6 +73,18 @@ export type Reminder = {
   targetDetail: string | null;
   targetAt: string | null;
   targetDone: boolean;
+};
+
+export type GroupRole = "admin" | "member";
+
+export type GroupMember = { userId: string; displayName: string; role: GroupRole; joinedAt: string };
+
+export type Group = {
+  id: string;
+  name: string;
+  inviteCode: string;
+  myRole: GroupRole;
+  members: GroupMember[];
 };
 
 /** Un cours connu (déduit des séances), pour les menus déroulants. */

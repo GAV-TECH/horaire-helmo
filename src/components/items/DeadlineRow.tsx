@@ -5,7 +5,10 @@ import { useOptimistic, useState, useTransition } from "react";
 import { deleteDeadline, setDeadlineDone } from "@/lib/actions/deadlines";
 import { courseColor } from "@/lib/courses";
 import { PRIORITY_LABELS, type Deadline } from "@/lib/data/types";
+import { DoneBy, SharedBadge } from "@/components/groups/share";
+import { useGroups } from "@/components/groups/GroupsContext";
 import { ReminderControl } from "@/components/reminders/ReminderControl";
+import { canEdit } from "@/lib/groups";
 import { ErrorText, buttonClass } from "@/components/ui";
 import { formatDue } from "./format";
 
@@ -21,6 +24,8 @@ export function DeadlineRow({ deadline, now, compact = false }: { deadline: Dead
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const overdue = !done && Date.parse(deadline.dueAt) < now;
+  const { me, groups } = useGroups();
+  const editable = canEdit(deadline, me, groups); // mêmes règles que le RLS : on masque ce qui serait refusé
 
   const toggle = () =>
     startTransition(async () => {
@@ -54,6 +59,7 @@ export function DeadlineRow({ deadline, now, compact = false }: { deadline: Dead
               {PRIORITY_LABELS[deadline.priority]}
             </span>
           )}
+          <SharedBadge groupId={deadline.groupId} ownerId={deadline.ownerId} />
         </p>
         <p className="text-xs text-zinc-500">
           <span className={overdue ? "font-medium text-red-600 dark:text-red-400" : ""}>
@@ -62,15 +68,16 @@ export function DeadlineRow({ deadline, now, compact = false }: { deadline: Dead
           </span>
           {deadline.courseName && ` · ${deadline.courseName}`}
         </p>
+        {deadline.groupId && <DoneBy groupId={deadline.groupId} doneBy={deadline.doneBy} />}
         {!compact && deadline.details && <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600 dark:text-zinc-400">{deadline.details}</p>}
         {!compact && !done && (
           <div className="mt-1">
-            <ReminderControl targetType="deadline" targetId={deadline.id} hasTime />
+            <ReminderControl targetType="deadline" targetId={deadline.id} hasTime groupId={deadline.groupId} />
           </div>
         )}
         <ErrorText>{error}</ErrorText>
       </div>
-      {!compact && (
+      {!compact && editable && (
         <span className="flex shrink-0 gap-1">
           {confirmDelete ? (
             <>

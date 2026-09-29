@@ -67,3 +67,20 @@ describe("todoItemSchema", () => {
     );
   });
 });
+
+describe("partage avec un groupe", () => {
+  const g = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
+  it("vide = privé, sinon l'identifiant du groupe", () => {
+    expect(deadlineSchema.parse({ title: "x", date: "2025-10-10", groupId: "" }).group_id).toBeNull();
+    expect(deadlineSchema.parse({ title: "x", date: "2025-10-10", groupId: g }).group_id).toBe(g);
+    expect(deadlineSchema.safeParse({ title: "x", date: "2025-10-10", groupId: "pas-un-id" }).success).toBe(false);
+  });
+
+  it("une liste liée à une séance reste toujours privée", () => {
+    const list = todoListSchema.parse({
+      scope: "session", title: "x", courseName: "Réseaux", sessionKey: "k", sessionStart: "2025-10-06T06:30:00.000Z", groupId: g,
+    });
+    expect(list.group_id).toBeNull();
+    expect(todoListSchema.parse({ scope: "global", title: "x", groupId: g }).group_id).toBe(g);
+  });
+});

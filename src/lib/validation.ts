@@ -24,6 +24,8 @@ const dateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide.");
 const timeField = z.string().regex(/^\d{2}:\d{2}$/, "Heure invalide.");
 const isoField = z.iso.datetime({ offset: true });
 export const idSchema = z.uuid();
+/** "Partager avec" : un id de groupe, ou vide = privé. Le RLS vérifie ensuite qu'on en est membre. */
+const groupField = z.uuid().optional().or(z.literal("")).transform((v) => v || null);
 
 export const displayNameSchema = trimmed(60, "Le nom affiché");
 export const emailSchema = z.email("Adresse e-mail invalide.").trim().toLowerCase();
@@ -65,6 +67,7 @@ export const deadlineSchema = z
     courseName: optionalText(300),
     priority: z.coerce.number().int().min(1).max(3).default(2),
     details: optionalText(5000),
+    groupId: groupField,
   })
   .transform((d) => ({
     title: d.title,
@@ -73,12 +76,13 @@ export const deadlineSchema = z
     course_key: d.courseName ? courseKey(d.courseName) : null,
     priority: d.priority,
     details: d.details,
+    group_id: d.groupId,
   }));
 
 export const todoListSchema = z
   .discriminatedUnion("scope", [
-    z.object({ scope: z.literal("global"), title: trimmed(200, "Le titre") }),
-    z.object({ scope: z.literal("course"), title: trimmed(200, "Le titre"), courseName: trimmed(300, "Le cours") }),
+    z.object({ scope: z.literal("global"), title: trimmed(200, "Le titre"), groupId: groupField }),
+    z.object({ scope: z.literal("course"), title: trimmed(200, "Le titre"), courseName: trimmed(300, "Le cours"), groupId: groupField }),
     z.object({
       scope: z.literal("session"),
       title: trimmed(200, "Le titre"),
@@ -94,6 +98,8 @@ export const todoListSchema = z
     course_key: l.scope === "global" ? null : courseKey(l.courseName),
     session_key: l.scope === "session" ? l.sessionKey : null,
     session_start: l.scope === "session" ? l.sessionStart : null,
+    // Une liste liée à une séance reste privée (les UID de séances diffèrent d'un étudiant à l'autre).
+    group_id: l.scope === "session" ? null : l.groupId,
   }));
 
 export const todoItemSchema = z

@@ -22,6 +22,8 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 - Lecture : Server Components (`src/app/(app)/*/page.tsx`) → `src/lib/data/queries.ts` avec le client utilisateur (RLS) → props vers des composants client.
 - Écriture : server actions `src/lib/actions/*.ts` (`"use server"`). Chacune appelle `actionContext()` (vérifie l'utilisateur), valide avec zod (`src/lib/validation.ts`), écrit via le client utilisateur, puis `refresh()`. Elles renvoient un `ActionResult`. Côté client, `useFormAction` / `useTransition` (`src/components/ui.tsx`).
 - Client admin (`src/lib/supabase/admin.ts`, clé secrète, ignore le RLS) : **uniquement** pour `ics_sources` et l'écriture des `sessions` (dans `src/lib/sync.ts`, `settings.ts`). Toujours filtrer par `user_id`.
+- Depuis la phase 4, les lectures de deadlines / listes / rappels ne filtrent PAS par `user_id` : le RLS renvoie les siennes + celles partagées. L'UI masque ce que le RLS refuserait (`canEdit` dans `src/lib/groups.ts`, mêmes règles) ; les actions détectent un refus RLS via `.select()` qui renvoie 0 ligne.
+- Constantes de style dans `src/components/styles.ts` (module neutre) : un composant serveur ne peut pas utiliser une constante importée d'un fichier `"use client"`.
 - Synchro : `syncSchedule(userId, {force})` → déchiffre le lien → `fetchIcs` → `parseIcs` → `diffSessions` (pure) → écrit → recolle notes et listes (`matchSession`). Cache de 5 min via `ics_sources.last_synced_at`. Route `POST /api/schedule/sync`.
 
 ## Conventions
@@ -40,4 +42,10 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 - [x] Phase 1 : parsing `.ics`, vues semaine / jour / à venir.
 - [x] Phase 2 : Supabase, auth, lien chiffré par utilisateur, synchro + badges de changement, notes (avec orphelines), deadlines, to-do lists (fait par utilisateur dans `todo_completions`), vue « Cette semaine ».
 - [x] Phase 3 : rappels (table `reminders`, vue `reminder_schedule` qui calcule `fire_at`), Web Push VAPID codé en Web Crypto (`supabase/functions/send-reminders/webpush.ts`, partagé Deno/Node, testé avec le vecteur RFC 8291), Edge Function `send-reminders` appelée chaque minute par pg_cron + pg_net (secret dans Vault), page Rappels, PWA (manifest, `public/sw.js`, icônes générées par `next/og`). Push sur téléphone : nécessite un déploiement HTTPS (Vercel, pas encore fait).
-- [ ] Phase 4 : groupes (admin / membre, invitations code + lien), partage lié au groupe + date + cours (jamais à un UID personnel), statut fait par membre, Realtime. Les rappels partagés notifient tous les membres (chacun peut couper pour lui-même). Il faudra un SMTP perso pour inviter d'autres étudiants.
+- [x] Phase 4 : groupes (`groups`, `group_members` ; opérations via RPC security definer `create_group`, `join_group`, `leave_group`…), helpers RLS `is_group_member` / `is_group_admin` / `shares_group_with`. `group_id` sur deadlines, todo_lists (jamais scope session), reminders (jamais sur séance). « Fait » par membre (`deadline_completions` remplace `deadlines.done_at`). `reminder_mutes`. `claim_due_reminders` renvoie une ligne par destinataire (`recipient_id`). Realtime → `RealtimeRefresher` (router.refresh). Contextes client `GroupsProvider` / `RemindersProvider` chargés dans `(app)/layout.tsx`.
+
+## Pistes suivantes
+
+- Déploiement Vercel (push sur téléphone, accès pour les camarades) + mettre à jour Site URL / Redirect URLs dans Supabase.
+- SMTP (Resend) pour les e-mails de confirmation des autres étudiants, puis modèles d'e-mail `token_hash`.
+- Couleurs de cours personnalisables, mode hors ligne.

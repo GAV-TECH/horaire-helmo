@@ -5,7 +5,7 @@ const NOW = new Date("2025-10-06T06:00:00Z"); // lundi 6 octobre, 08:00 à Bruxe
 
 const reminder = (overrides: Partial<DueReminder>): DueReminder => ({
   id: "r1",
-  user_id: "u1",
+  recipient_id: "u1",
   target_type: "session",
   target_title: "Réseaux",
   target_detail: "L2.05",

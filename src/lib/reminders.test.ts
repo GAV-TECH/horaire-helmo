@@ -46,7 +46,7 @@ describe("affichage", () => {
 
   it("donne le statut", () => {
     const base: Reminder = {
-      id, targetType: "session", targetId: id, offsetMinutes: 60, remindAt: null, fireAt: "2025-10-06T07:00:00.000Z",
+      id, ownerId: "me", groupId: null, muted: false, targetType: "session", targetId: id, offsetMinutes: 60, remindAt: null, fireAt: "2025-10-06T07:00:00.000Z",
       sentAt: null, targetTitle: "Réseaux", targetDetail: null, targetAt: "2025-10-06T08:00:00.000Z", targetDone: false,
     };
     const now = Date.parse("2025-10-06T06:00:00.000Z");
