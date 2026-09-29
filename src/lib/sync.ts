@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptSecret } from "@/lib/crypto";
-import { loadSessions } from "@/lib/data/queries";
+import { dbError, loadSessions } from "@/lib/data/queries";
 import { serverEnv } from "@/lib/env";
 import { IcsFetchError, fetchIcs } from "@/lib/ics/fetch";
 import { IcsParseError, parseIcs } from "@/lib/ics/parse";
@@ -41,7 +41,7 @@ async function run(userId: string, force: boolean): Promise<SyncResult> {
     .select("url_encrypted, last_synced_at, last_error")
     .eq("user_id", userId)
     .maybeSingle();
-  if (error) throw error;
+  if (error) throw dbError(error, "sync");
   if (!source) return { status: "no-source", syncedAt: null, error: null };
 
   const age = source.last_synced_at ? Date.now() - Date.parse(source.last_synced_at) : Infinity;
@@ -101,11 +101,11 @@ async function writeSessions(admin: SupabaseClient, userId: string, writes: Sess
   const inserts = writes.filter((w) => !w.id).map((w) => toRow(userId, w));
   for (let i = 0; i < updates.length; i += 500) {
     const { error } = await admin.from("sessions").upsert(updates.slice(i, i + 500)); // conflit sur l'id → mise à jour
-    if (error) throw error;
+    if (error) throw dbError(error, "sync");
   }
   for (let i = 0; i < inserts.length; i += 500) {
     const { error } = await admin.from("sessions").insert(inserts.slice(i, i + 500));
-    if (error) throw error;
+    if (error) throw dbError(error, "sync");
   }
 }
 
@@ -136,7 +136,7 @@ async function relinkReferences(
       .select("id, session_key, course_key, session_start")
       .eq("user_id", userId)
       .not("session_key", "is", null);
-    if (error) throw error;
+    if (error) throw dbError(error, "sync");
     for (const ref of data ?? []) {
       const match = matchSession(
         { sessionKey: ref.session_key, courseKey: ref.course_key, sessionStart: ref.session_start },

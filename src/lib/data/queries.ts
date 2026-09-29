@@ -11,6 +11,14 @@ import type { Course, Deadline, Group, Note, Priority, Reminder, TodoItem, TodoL
  * en "2025-10-06T06:30:00.000Z" pour que les comparaisons de chaînes restent justes.
  */
 const iso = (value: string) => new Date(value).toISOString();
+
+/**
+ * Supabase renvoie ses erreurs sous forme d'objet ({ code, message, … }) et non d'Error :
+ * lancé tel quel, Next.js affiche "{code: …, message: …}". On le convertit en vraie Error lisible.
+ */
+export function dbError(error: { message: string; code?: string }, context: string): Error {
+  return new Error(`Base de données (${context}) : ${error.message}${error.code ? ` [${error.code}]` : ""}`);
+}
 const isoOrNull = (value: string | null) => (value ? iso(value) : null);
 
 export type SessionRow = {
@@ -57,7 +65,7 @@ async function selectAll<T>(query: (from: number, to: number) => PromiseLike<{ d
   const rows: T[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await query(from, from + PAGE - 1);
-    if (error) throw error;
+    if (error) throw dbError(error as { message: string; code?: string }, "selectAll");
     rows.push(...(data ?? []));
     if (!data || data.length < PAGE) return rows;
   }
@@ -74,7 +82,7 @@ export async function loadSessions(supabase: SupabaseClient, userId: string, sin
 
 export async function loadNotes(supabase: SupabaseClient, userId: string): Promise<Note[]> {
   const { data, error } = await supabase.from("notes").select("*").eq("user_id", userId).order("session_start");
-  if (error) throw error;
+  if (error) throw dbError(error as { message: string; code?: string }, "notes");
   return (data ?? []).map((r) => ({
     id: r.id,
     sessionKey: r.session_key,
@@ -95,7 +103,7 @@ export async function loadNotes(supabase: SupabaseClient, userId: string): Promi
 
 export async function loadDeadlines(supabase: SupabaseClient, userId: string): Promise<Deadline[]> {
   const { data, error } = await supabase.from("deadlines").select("*, deadline_completions(user_id, done_at)").order("due_at");
-  if (error) throw error;
+  if (error) throw dbError(error as { message: string; code?: string }, "deadlines");
   return (data ?? []).map((r) => {
     const completions = (r.deadline_completions ?? []) as { user_id: string; done_at: string }[];
     const mine = completions.find((c) => c.user_id === userId);
@@ -122,7 +130,7 @@ export async function loadTodoLists(supabase: SupabaseClient, userId: string): P
     // todo_item_flags : le RLS ne renvoie que MES marqueurs (étoile, Ma journée).
     .select("*, todo_items(*, todo_completions(user_id), todo_item_flags(user_id, important, my_day))")
     .order("created_at");
-  if (error) throw error;
+  if (error) throw dbError(error as { message: string; code?: string }, "todo_lists");
 
   return (data ?? []).map((l) => ({
     id: l.id,
@@ -167,7 +175,7 @@ type ItemRow = {
 
 export async function loadReminders(supabase: SupabaseClient): Promise<Reminder[]> {
   const { data, error } = await supabase.from("reminder_schedule").select("*").order("fire_at");
-  if (error) throw error;
+  if (error) throw dbError(error as { message: string; code?: string }, "reminder_schedule");
   return (data ?? []).map((r) => ({
     id: r.id,
     ownerId: r.user_id,
@@ -192,7 +200,7 @@ export async function loadGroups(supabase: SupabaseClient, userId: string): Prom
     .from("groups")
     .select("id, name, invite_code, created_at, group_members(user_id, role, joined_at, profiles(display_name))")
     .order("created_at");
-  if (error) throw error;
+  if (error) throw dbError(error as { message: string; code?: string }, "groups");
   return (data ?? []).map((g) => {
     const members = ((g.group_members ?? []) as unknown as MemberRow[])
       .map((m) => ({
