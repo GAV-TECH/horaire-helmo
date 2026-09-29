@@ -13,7 +13,7 @@ Application web qui importe l'horaire HELMO (flux iCalendar `.ics`) et permet de
 ## 1. Installation
 
 ```powershell
-cd C:\Users\gille\dev\horaire-helmo
+cd C:\Users\gille\dev\horaire-helmonpm run dev
 npm install
 ```
 
@@ -24,11 +24,13 @@ npm install
 3. **Adresses du site** : **Authentication → URL Configuration**
    - *Site URL* : `http://localhost:3000`
    - *Redirect URLs* : ajoute `http://localhost:3000/**`
-4. **Modèles d'e-mail** : **Authentication → Emails**. Dans chaque modèle ci-dessous, remplace le lien `{{ .ConfirmationURL }}` par :
+4. **Modèles d'e-mail (facultatif, nécessite un SMTP personnel)** : Supabase ne permet de modifier les modèles qu'après avoir configuré un SMTP (*Authentication → Emails → Set up SMTP*). Sans ça, l'app fonctionne avec les modèles par défaut, mais **le lien reçu par e-mail doit être ouvert dans le même navigateur que celui où tu as fait la demande** (inscription ou mot de passe oublié). Une fois un SMTP configuré, remplace `{{ .ConfirmationURL }}` dans :
    - *Confirm signup* : `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`
    - *Reset password* : `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery`
 
-   Pourquoi : avec ce format, le lien fonctionne même si tu ouvres l'e-mail sur un autre appareil que celui où tu t'es inscrit.
+   Avec ce format, le lien fonctionne même ouvert sur un autre appareil.
+
+   Pour tester sans e-mail : *Sign In / Providers → Email* → décocher *Confirm email*.
 5. **Connexion par e-mail** : **Authentication → Sign In / Providers → Email** : activé, avec *Confirm email* coché (recommandé).
 6. **Récupérer les clés** : **Project Settings → API Keys**
    - *Publishable key* (`sb_publishable_…`) → `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
