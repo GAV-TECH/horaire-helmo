@@ -9,7 +9,6 @@ type Props = {
   days: string[];
   sessions: StoredSession[];
   deadlines: Deadline[];
-  noteCounts: Map<string, number>;
   now: number;
   onSelect: (session: StoredSession) => void;
   onSelectDay?: (day: string) => void;
@@ -19,7 +18,7 @@ type Props = {
 };
 
 /** Liste de séances regroupées par jour : vue semaine sur mobile et vue "à venir". */
-export function DayList({ days, sessions, deadlines, noteCounts, now, onSelect, onSelectDay, showEmptyDays, emptyMessage }: Props) {
+export function DayList({ days, sessions, deadlines, now, onSelect, onSelectDay, showEmptyDays, emptyMessage }: Props) {
   const byDay = groupByDay(sessions);
   const deadlinesByDay = groupByDate(deadlines, (d) => d.dueAt);
   const today = dayKey(now);
@@ -49,7 +48,7 @@ export function DayList({ days, sessions, deadlines, noteCounts, now, onSelect, 
               <DeadlineChip key={d.id} deadline={d} />
             ))}
             {(byDay.get(day) ?? []).map((s) => (
-              <SessionBlock key={s.key} session={s} onSelect={onSelect} variant="card" noteCount={noteCounts.get(s.key)} />
+              <SessionBlock key={s.key} session={s} onSelect={onSelect} variant="card" />
             ))}
             {!byDay.has(day) && <p className="text-sm text-zinc-400">Pas de cours</p>}
           </div>

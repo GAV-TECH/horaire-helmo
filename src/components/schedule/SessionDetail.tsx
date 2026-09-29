@@ -5,12 +5,11 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { markChangesSeen } from "@/lib/actions/sessions";
 import { addSessionTask } from "@/lib/actions/todos";
 import { courseColor, parseCourseTitle } from "@/lib/courses";
-import type { Course, Deadline, Note, TodoItem } from "@/lib/data/types";
+import type { Course, Deadline, TodoItem } from "@/lib/data/types";
 import type { StoredSession } from "@/lib/ics/types";
 import { formatFr, isoToBrusselsInputs } from "@/lib/time";
 import { DeadlineEditor } from "@/components/deadlines/DeadlineEditor";
 import { DeadlineRow } from "@/components/items/DeadlineRow";
-import { NoteCard, NoteForm } from "@/components/items/NoteCard";
 import { TodoItemRow } from "@/components/items/TodoItemRow";
 import { formatSessionDate } from "@/components/items/format";
 import { ReminderControl } from "@/components/reminders/ReminderControl";
@@ -19,7 +18,6 @@ import { timeRange } from "./SessionBlock";
 
 type Props = {
   session: StoredSession;
-  notes: Note[];
   tasks: TodoItem[];
   courseDeadlines: Deadline[];
   /** Pour le formulaire d'échéance : liste des cours et séances ("prochaine séance"). */
@@ -30,7 +28,7 @@ type Props = {
 };
 
 /** Panneau de détail : feuille en bas de l'écran sur mobile, panneau latéral sur grand écran. */
-export function SessionDetail({ session, notes, tasks, courseDeadlines, courses, sessions, now, onClose }: Props) {
+export function SessionDetail({ session, tasks, courseDeadlines, courses, sessions, now, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -140,15 +138,6 @@ export function SessionDetail({ session, notes, tasks, courseDeadlines, courses,
 
         <Section title="Rappels">
           <ReminderControl targetType="session" targetId={session.id} hasTime />
-        </Section>
-
-        <Section title={`Notes (${notes.length})`}>
-          <div className="flex flex-col gap-2">
-            {notes.map((note) => (
-              <NoteCard key={note.id} note={note} />
-            ))}
-            <NoteForm sessionKey={session.key} courseTitle={session.title} sessionStart={session.start} />
-          </div>
         </Section>
 
         <Section title="Tâches de cette séance">

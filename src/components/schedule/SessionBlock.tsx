@@ -7,7 +7,6 @@ type Props = {
   onSelect: (session: StoredSession) => void;
   /** "grid" : bloc compact dans la grille horaire ; "card" : ligne de liste plus détaillée. */
   variant: "grid" | "card";
-  noteCount?: number;
   style?: React.CSSProperties;
 };
 
@@ -28,7 +27,7 @@ export function changeBadge(session: StoredSession): string | null {
 }
 
 /** Une séance cliquable. La couleur vient du nom du cours ; une séance annulée est barrée. */
-export function SessionBlock({ session, onSelect, variant, noteCount = 0, style }: Props) {
+export function SessionBlock({ session, onSelect, variant, style }: Props) {
   const color = courseColor(session.courseKey);
   const cancelled = session.status === "cancelled";
   const badge = changeBadge(session);
@@ -44,15 +43,10 @@ export function SessionBlock({ session, onSelect, variant, noteCount = 0, style 
       onClick={() => onSelect(session)}
       style={{ borderLeftColor: color, backgroundColor: `${color}1f`, ...style }}
       className={`${base} ${variant === "grid" ? "px-1.5 py-1 text-xs" : "w-full px-3 py-2 text-sm"} ${cancelled ? "opacity-60" : ""} ${badge ? "ring-2 ring-amber-500" : parsed.isEvaluation && !cancelled ? "ring-2 ring-red-500" : ""}`}
-      aria-label={`${session.title}, ${timeRange(session)}${session.location ? `, ${session.location}` : ""}${cancelled ? ", annulée" : ""}${badge ? `, ${badge}` : ""}${noteCount ? `, ${noteCount} note(s)` : ""}`}
+      aria-label={`${session.title}, ${timeRange(session)}${session.location ? `, ${session.location}` : ""}${cancelled ? ", annulée" : ""}${badge ? `, ${badge}` : ""}`}
     >
-      {(badge || noteCount > 0) && (
-        <span className="float-right ml-1 flex gap-1">
-          {noteCount > 0 && <span title={`${noteCount} note(s)`}>✎</span>}
-          {badge && (
-            <span className="rounded bg-amber-500 px-1 text-[10px] font-semibold uppercase text-white">{badge}</span>
-          )}
-        </span>
+      {badge && (
+        <span className="float-right ml-1 rounded bg-amber-500 px-1 text-[10px] font-semibold uppercase text-white">{badge}</span>
       )}
       {parsed.isEvaluation && !cancelled && (
         <span className="mb-0.5 inline-block rounded bg-red-600 px-1 text-[10px] font-bold uppercase tracking-wide text-white">Évaluation</span>

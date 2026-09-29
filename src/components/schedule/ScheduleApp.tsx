@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { fromDayKey, groupByDay, shiftDay, weekDays } from "@/lib/calendar";
 import { markChangesSeen } from "@/lib/actions/sessions";
-import type { Deadline, Note, TodoList } from "@/lib/data/types";
+import type { Deadline, TodoList } from "@/lib/data/types";
 import type { StoredSession } from "@/lib/ics/types";
 import { attachToSessions } from "@/lib/sessions/attach";
 import { coursesFrom, parseCourseTitle, sameCourse } from "@/lib/courses";
@@ -28,7 +28,6 @@ const UPCOMING_DAYS = 30;
 
 type Props = {
   sessions: StoredSession[];
-  notes: Note[];
   deadlines: Deadline[];
   lists: TodoList[];
   sync: SyncResult;
@@ -38,7 +37,7 @@ type Props = {
 };
 
 /** Composant client principal de l'horaire : vues, navigation, panneau de détail. */
-export function ScheduleApp({ sessions, notes, deadlines, lists, sync, initialDay, initialNow }: Props) {
+export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, initialNow }: Props) {
   const router = useRouter();
   const [view, setView] = useState<View>("week");
   const [anchor, setAnchor] = useState(initialDay);
@@ -69,9 +68,7 @@ export function ScheduleApp({ sessions, notes, deadlines, lists, sync, initialDa
     setView("day");
   }, []);
 
-  // Rattache notes et tâches à leur séance (UID, sinon cours + heure de début).
-  const notesBySession = useMemo(() => attachToSessions(notes, (n) => n, sessions).bySession, [notes, sessions]);
-  const noteCounts = useMemo(() => new Map([...notesBySession].map(([k, v]) => [k, v.length])), [notesBySession]);
+  // Rattache les tâches à leur séance (UID, sinon cours + heure de début).
   const tasksBySession = useMemo(
     () =>
       attachToSessions(
@@ -109,7 +106,7 @@ export function ScheduleApp({ sessions, notes, deadlines, lists, sync, initialDa
       : view === "day"
         ? formatFr(fromDayKey(anchor), "EEEE d MMMM yyyy")
         : `Les ${UPCOMING_DAYS} prochains jours`;
-  const common = { deadlines: openDeadlines, noteCounts, now, onSelect: (s: StoredSession) => setSelectedKey(s.key) };
+  const common = { deadlines: openDeadlines, now, onSelect: (s: StoredSession) => setSelectedKey(s.key) };
 
   if (sync.status === "no-source") {
     return (
@@ -220,7 +217,6 @@ export function ScheduleApp({ sessions, notes, deadlines, lists, sync, initialDa
       {selected && (
         <SessionDetail
           session={selected}
-          notes={notesBySession.get(selected.key) ?? []}
           tasks={(tasksBySession.get(selected.key) ?? []).flatMap((l) => l.items)}
           courseDeadlines={openDeadlines.filter((d) => sameCourse(d.courseName, selected.title) && Date.parse(d.dueAt) > now)}
           courses={courses}

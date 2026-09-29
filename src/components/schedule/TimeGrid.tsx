@@ -12,7 +12,6 @@ type Props = {
   days: string[];
   sessions: StoredSession[];
   deadlines: Deadline[];
-  noteCounts: Map<string, number>;
   now: number;
   onSelect: (session: StoredSession) => void;
   onSelectDay?: (day: string) => void;
@@ -21,7 +20,7 @@ type Props = {
 const HOUR_HEIGHT = 56; // px par heure
 
 /** Grille horaire classique (heures en ordonnée, jours en colonnes), utilisée par les vues jour et semaine. */
-export function TimeGrid({ days, sessions, deadlines, noteCounts, now, onSelect, onSelectDay }: Props) {
+export function TimeGrid({ days, sessions, deadlines, now, onSelect, onSelectDay }: Props) {
   const byDay = groupByDay(sessions);
   const deadlinesByDay = groupByDate(deadlines, (d) => d.dueAt);
   const timed = (day: string) => (byDay.get(day) ?? []).filter((s) => !s.allDay);
@@ -68,7 +67,7 @@ export function TimeGrid({ days, sessions, deadlines, noteCounts, now, onSelect,
           {days.map((day) => (
             <div key={day} className="flex min-w-0 flex-col gap-1 p-1">
               {allDay(day).map((s) => (
-                <SessionBlock key={s.key} session={s} onSelect={onSelect} variant="grid" noteCount={noteCounts.get(s.key)} />
+                <SessionBlock key={s.key} session={s} onSelect={onSelect} variant="grid" />
               ))}
               {(deadlinesByDay.get(day) ?? []).map((d) => (
                 <DeadlineChip key={d.id} deadline={d} />
@@ -106,7 +105,6 @@ export function TimeGrid({ days, sessions, deadlines, noteCounts, now, onSelect,
                   session={item}
                   onSelect={onSelect}
                   variant="grid"
-                  noteCount={noteCounts.get(item.key)}
                   style={{
                     position: "absolute",
                     top,

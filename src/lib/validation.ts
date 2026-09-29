@@ -51,14 +51,6 @@ export function isAllowedIcsUrl(url: string, allowedHosts: string[]): boolean {
   }
 }
 
-export const noteCreateSchema = z.object({
-  sessionKey: trimmed(1000, "La séance"),
-  courseTitle: trimmed(300, "Le cours"),
-  sessionStart: isoField,
-  body: trimmed(20000, "La note"),
-});
-export const noteUpdateSchema = z.object({ id: idSchema, body: trimmed(20000, "La note") });
-
 export const deadlineSchema = z
   .object({
     title: trimmed(200, "Le titre"),

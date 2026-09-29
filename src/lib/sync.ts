@@ -76,8 +76,8 @@ async function run(userId: string, force: boolean): Promise<SyncResult> {
 
 /**
  * Supprime les copies en double enregistrées avant la correction du parsing (HELMO envoie chaque
- * séance deux fois). Les rappels posés sur une copie sont d'abord rattachés à l'originale ; les notes
- * le sont ensuite par relinkReferences (même cours, même heure). Renvoie les séances restantes.
+ * séance deux fois). Les rappels posés sur une copie sont d'abord rattachés à l'originale ; les listes
+ * de tâches le sont ensuite par relinkReferences (même cours, même heure). Renvoie les séances restantes.
  */
 async function removeLegacyDuplicates(admin: SupabaseClient, userId: string, previous: StoredSession[]) {
   const duplicates = legacyDuplicates(previous);
@@ -130,7 +130,7 @@ async function writeSessions(admin: SupabaseClient, userId: string, writes: Sess
   }
 }
 
-/** État des séances après écriture (anciennes mises à jour + nouvelles), pour recoller les notes. */
+/** État des séances après écriture (anciennes mises à jour + nouvelles), pour recoller les listes de tâches. */
 function merge(previous: StoredSession[], writes: SessionWrite[]) {
   const byId = new Map<string, { key: string; courseKey: string; start: string }>(previous.map((p) => [p.id, p]));
   const added: { key: string; courseKey: string; start: string }[] = [];
@@ -142,7 +142,7 @@ function merge(previous: StoredSession[], writes: SessionWrite[]) {
 }
 
 /**
- * Si une séance a changé d'UID, ses notes et listes pointent vers l'ancien :
+ * Si une séance a changé d'UID, ses listes de tâches pointent vers l'ancien :
  * on les "recolle" au nouvel UID grâce au cours + heure de début.
  */
 async function relinkReferences(
@@ -151,7 +151,7 @@ async function relinkReferences(
   sessions: { key: string; courseKey: string; start: string }[],
 ) {
   const index = indexSessions(sessions);
-  for (const table of ["notes", "todo_lists"] as const) {
+  for (const table of ["todo_lists"] as const) {
     const { data, error } = await admin
       .from(table)
       .select("id, session_key, course_key, session_start")

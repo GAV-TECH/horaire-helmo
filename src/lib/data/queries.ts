@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionChanges, StoredSession } from "@/lib/ics/types";
-import type { Deadline, Group, Note, Priority, Reminder, TodoItem, TodoList } from "./types";
+import type { Deadline, Group, Priority, Reminder, TodoItem, TodoList } from "./types";
 
 /*
  * Lecture des données. Avec le client "utilisateur" (createClient), le RLS filtre déjà ;
@@ -78,21 +78,6 @@ export async function loadSessions(supabase: SupabaseClient, userId: string, sin
     return q.order("start_at").range(from, to);
   });
   return rows.map(rowToSession);
-}
-
-export async function loadNotes(supabase: SupabaseClient, userId: string): Promise<Note[]> {
-  const { data, error } = await supabase.from("notes").select("*").eq("user_id", userId).order("session_start");
-  if (error) throw dbError(error as { message: string; code?: string }, "notes");
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    sessionKey: r.session_key,
-    courseKey: r.course_key,
-    courseTitle: r.course_title,
-    sessionStart: iso(r.session_start),
-    body: r.body,
-    createdAt: iso(r.created_at),
-    updatedAt: iso(r.updated_at),
-  }));
 }
 
 /*

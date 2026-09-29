@@ -1,6 +1,6 @@
 import { ScheduleApp } from "@/components/schedule/ScheduleApp";
 import { requireUser } from "@/lib/auth";
-import { loadDeadlines, loadNotes, loadSessions, loadTodoLists } from "@/lib/data/queries";
+import { loadDeadlines, loadSessions, loadTodoLists } from "@/lib/data/queries";
 import { requestNow } from "@/lib/request-time";
 import { syncSchedule } from "@/lib/sync";
 import { dayKey } from "@/lib/time";
@@ -15,10 +15,9 @@ export default async function HorairePage() {
   const sync = await syncSchedule(user.id);
 
   const since = new Date(now - HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  // Promise.all : les 4 requêtes partent en parallèle au lieu de s'attendre l'une l'autre.
-  const [sessions, notes, deadlines, lists] = await Promise.all([
+  // Promise.all : les requêtes partent en parallèle au lieu de s'attendre l'une l'autre.
+  const [sessions, deadlines, lists] = await Promise.all([
     loadSessions(supabase, user.id, since),
-    loadNotes(supabase, user.id),
     loadDeadlines(supabase, user.id),
     loadTodoLists(supabase, user.id),
   ]);
@@ -26,7 +25,6 @@ export default async function HorairePage() {
   return (
     <ScheduleApp
       sessions={sessions}
-      notes={notes}
       deadlines={deadlines}
       lists={lists}
       sync={sync}

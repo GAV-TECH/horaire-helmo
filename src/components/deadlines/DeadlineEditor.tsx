@@ -74,7 +74,7 @@ export function DeadlineEditor({ deadline, courses, sessions, now, initial, comp
           <div className="flex gap-1.5">
             {([1, 2, 3] as const).map((p) => (
               <button key={p} type="button" onClick={() => setPriority(p)} aria-pressed={priority === p} className={`flex-1 ${chip(priority === p)}`}>
-                <span className={`font-black ${IMPORTANCE[p].style}`}>{IMPORTANCE[p].marks}</span> {IMPORTANCE[p].label}
+                <span className="font-black">{IMPORTANCE[p].marks}</span> {IMPORTANCE[p].label}
               </button>
             ))}
           </div>

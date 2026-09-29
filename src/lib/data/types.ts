@@ -1,16 +1,5 @@
 /** Types des données utilisateur envoyées aux composants (camelCase, dates en ISO UTC). */
 
-export type Note = {
-  id: string;
-  sessionKey: string;
-  courseKey: string;
-  courseTitle: string;
-  sessionStart: string;
-  body: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type Priority = 1 | 2 | 3;
 
 /** Éléments partageables : ownerId = auteur, groupId = groupe avec lequel c'est partagé (sinon privé). */
@@ -30,7 +19,8 @@ export type Deadline = Shareable & {
   doneBy: string[];
 };
 
-export type TodoScope = "global" | "course" | "session";
+/** "project" : un projet (liste de tâches affichée dans l'onglet Projets). */
+export type TodoScope = "global" | "course" | "session" | "project";
 
 export type TodoItem = {
   id: string;
