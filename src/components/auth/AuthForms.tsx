@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { signIn, signUp } from "@/lib/actions/auth";
 import { ActionMessage, Field, buttonClass, cardClass, inputClass, useFormAction } from "@/components/ui";
+import { PasswordInput } from "./PasswordInput";
 
 export function AuthForms({ next, linkError }: { next: string; linkError: string | null }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -36,7 +37,7 @@ export function AuthForms({ next, linkError }: { next: string; linkError: string
             <input name="email" type="email" autoComplete="email" required className={inputClass} />
           </Field>
           <Field label="Mot de passe">
-            <input name="password" type="password" autoComplete="current-password" required className={inputClass} />
+            <PasswordInput name="password" autoComplete="current-password" required />
           </Field>
           <ActionMessage result={login.result} />
           <button type="submit" disabled={login.pending} className={buttonClass.primary}>
@@ -55,7 +56,7 @@ export function AuthForms({ next, linkError }: { next: string; linkError: string
             <input name="email" type="email" autoComplete="email" required className={inputClass} />
           </Field>
           <Field label="Mot de passe" hint="8 caractères minimum.">
-            <input name="password" type="password" autoComplete="new-password" required minLength={8} className={inputClass} />
+            <PasswordInput name="password" autoComplete="new-password" required minLength={8} />
           </Field>
           <ActionMessage result={signup.result} />
           <button type="submit" disabled={signup.pending} className={buttonClass.primary}>
