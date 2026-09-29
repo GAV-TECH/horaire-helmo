@@ -1,6 +1,7 @@
 -- =====================================================================
 -- Horaire HELMO — phase 4 : groupes, partage, statut "fait" par membre,
--- temps réel. À exécuter une fois : SQL Editor → New query → Run.
+-- temps réel. SQL Editor → New query → Run.
+-- Script RELANÇABLE : il complète ce qui manque et ignore ce qui existe déjà.
 --
 -- Principe de confidentialité : rien de ce qui existait n'est rendu visible
 -- aux autres. Seuls les éléments EXPLICITEMENT partagés (group_id renseigné)
@@ -28,7 +29,7 @@ as $$
   select upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12));
 $$;
 
-create table public.groups (
+create table if not exists public.groups (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 1 and 80),
   invite_code text not null unique default public.new_invite_code(),
@@ -36,7 +37,7 @@ create table public.groups (
   created_at timestamptz not null default now()
 );
 
-create table public.group_members (
+create table if not exists public.group_members (
   group_id uuid not null references public.groups (id) on delete cascade,
   -- référence profiles (et non auth.users) : permet de récupérer le nom affiché en une requête
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -45,7 +46,7 @@ create table public.group_members (
   primary key (group_id, user_id)
 );
 
-create index group_members_user_idx on public.group_members (user_id);
+create index if not exists group_members_user_idx on public.group_members (user_id);
 
 -- Fonctions utilisées par les politiques RLS. security definer : elles lisent
 -- group_members sans repasser par son propre RLS (sinon : récursion infinie).
@@ -92,19 +93,23 @@ grant execute on function public.is_group_member(uuid), public.is_group_admin(uu
 alter table public.groups enable row level security;
 alter table public.group_members enable row level security;
 
+drop policy if exists "groups : les membres voient leur groupe" on public.groups;
 create policy "groups : les membres voient leur groupe"
   on public.groups for select to authenticated
   using (public.is_group_member(id));
 
+drop policy if exists "groups : les admins renomment" on public.groups;
 create policy "groups : les admins renomment"
   on public.groups for update to authenticated
   using (public.is_group_admin(id))
   with check (public.is_group_admin(id));
 
+drop policy if exists "groups : les admins suppriment" on public.groups;
 create policy "groups : les admins suppriment"
   on public.groups for delete to authenticated
   using (public.is_group_admin(id));
 
+drop policy if exists "group_members : les membres voient les autres membres" on public.group_members;
 create policy "group_members : les membres voient les autres membres"
   on public.group_members for select to authenticated
   using (public.is_group_member(group_id));
@@ -116,7 +121,8 @@ revoke insert, update, delete on public.group_members from anon, authenticated;
 
 -- Les membres d'un même groupe voient le nom affiché des autres (et rien d'autre :
 -- profiles ne contient que le nom).
-drop policy "profiles : lire son profil" on public.profiles;
+drop policy if exists "profiles : lire son profil" on public.profiles;
+drop policy if exists "profiles : lire son profil et ceux de ses groupes" on public.profiles;
 create policy "profiles : lire son profil et ceux de ses groupes"
   on public.profiles for select to authenticated
   using (id = (select auth.uid()) or public.shares_group_with(id));
@@ -242,32 +248,42 @@ grant execute on function
 -- Deadlines : partage + "fait" par membre (table deadline_completions,
 -- comme todo_completions). Les deadlines déjà terminées sont reprises.
 -- ---------------------------------------------------------------------
-create table public.deadline_completions (
+create table if not exists public.deadline_completions (
   deadline_id uuid not null references public.deadlines (id) on delete cascade,
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   done_at timestamptz not null default now(),
   primary key (deadline_id, user_id)
 );
 
-insert into public.deadline_completions (deadline_id, user_id, done_at)
-  select id, user_id, done_at from public.deadlines where done_at is not null;
-alter table public.deadlines drop column done_at;
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'deadlines' and column_name = 'done_at') then
+    insert into public.deadline_completions (deadline_id, user_id, done_at)
+      select id, user_id, done_at from public.deadlines where done_at is not null
+      on conflict do nothing;
+    alter table public.deadlines drop column done_at;
+  end if;
+end $$;
 
-alter table public.deadlines add column group_id uuid references public.groups (id) on delete set null;
-create index deadlines_group_idx on public.deadlines (group_id) where group_id is not null;
+alter table public.deadlines add column if not exists group_id uuid references public.groups (id) on delete set null;
+create index if not exists deadlines_group_idx on public.deadlines (group_id) where group_id is not null;
 
-drop policy "deadlines : gérer ses deadlines" on public.deadlines;
+drop policy if exists "deadlines : gérer ses deadlines" on public.deadlines;
 
+drop policy if exists "deadlines : voir les siennes et celles de ses groupes" on public.deadlines;
 create policy "deadlines : voir les siennes et celles de ses groupes"
   on public.deadlines for select to authenticated
   using (user_id = (select auth.uid()) or (group_id is not null and public.is_group_member(group_id)));
 
+drop policy if exists "deadlines : créer (partage seulement vers ses groupes)" on public.deadlines;
 create policy "deadlines : créer (partage seulement vers ses groupes)"
   on public.deadlines for insert to authenticated
   with check (user_id = (select auth.uid()) and (group_id is null or public.is_group_member(group_id)));
 
 -- Modifier : l'auteur, ou un admin du groupe pour une deadline partagée.
 -- Après modification, une deadline privée doit appartenir à celui qui modifie.
+drop policy if exists "deadlines : modifier (auteur ou admin du groupe)" on public.deadlines;
 create policy "deadlines : modifier (auteur ou admin du groupe)"
   on public.deadlines for update to authenticated
   using (user_id = (select auth.uid()) or (group_id is not null and public.is_group_admin(group_id)))
@@ -276,6 +292,7 @@ create policy "deadlines : modifier (auteur ou admin du groupe)"
     or (group_id is not null and public.is_group_member(group_id))
   );
 
+drop policy if exists "deadlines : supprimer (auteur ou admin du groupe)" on public.deadlines;
 create policy "deadlines : supprimer (auteur ou admin du groupe)"
   on public.deadlines for delete to authenticated
   using (user_id = (select auth.uid()) or (group_id is not null and public.is_group_admin(group_id)));
@@ -284,6 +301,7 @@ alter table public.deadline_completions enable row level security;
 
 -- Visible : ses propres coches, et celles des autres sur une deadline qu'on voit
 -- (en pratique : les deadlines partagées de ses groupes).
+drop policy if exists "deadline_completions : voir" on public.deadline_completions;
 create policy "deadline_completions : voir"
   on public.deadline_completions for select to authenticated
   using (
@@ -291,10 +309,12 @@ create policy "deadline_completions : voir"
     or exists (select 1 from public.deadlines d where d.id = deadline_id and d.group_id is not null)
   );
 
+drop policy if exists "deadline_completions : cocher pour soi" on public.deadline_completions;
 create policy "deadline_completions : cocher pour soi"
   on public.deadline_completions for insert to authenticated
   with check (user_id = (select auth.uid()) and exists (select 1 from public.deadlines d where d.id = deadline_id));
 
+drop policy if exists "deadline_completions : décocher pour soi" on public.deadline_completions;
 create policy "deadline_completions : décocher pour soi"
   on public.deadline_completions for delete to authenticated
   using (user_id = (select auth.uid()));
@@ -304,20 +324,24 @@ create policy "deadline_completions : décocher pour soi"
 -- Une liste liée à une séance ne peut pas être partagée : les UID de
 -- séances diffèrent d'un étudiant à l'autre.
 -- ---------------------------------------------------------------------
-alter table public.todo_lists add column group_id uuid references public.groups (id) on delete set null;
+alter table public.todo_lists add column if not exists group_id uuid references public.groups (id) on delete set null;
+alter table public.todo_lists drop constraint if exists todo_lists_shared_not_session;
 alter table public.todo_lists add constraint todo_lists_shared_not_session check (group_id is null or scope <> 'session');
-create index todo_lists_group_idx on public.todo_lists (group_id) where group_id is not null;
+create index if not exists todo_lists_group_idx on public.todo_lists (group_id) where group_id is not null;
 
-drop policy "todo_lists : gérer ses listes" on public.todo_lists;
+drop policy if exists "todo_lists : gérer ses listes" on public.todo_lists;
 
+drop policy if exists "todo_lists : voir les siennes et celles de ses groupes" on public.todo_lists;
 create policy "todo_lists : voir les siennes et celles de ses groupes"
   on public.todo_lists for select to authenticated
   using (user_id = (select auth.uid()) or (group_id is not null and public.is_group_member(group_id)));
 
+drop policy if exists "todo_lists : créer" on public.todo_lists;
 create policy "todo_lists : créer"
   on public.todo_lists for insert to authenticated
   with check (user_id = (select auth.uid()) and (group_id is null or public.is_group_member(group_id)));
 
+drop policy if exists "todo_lists : modifier (auteur ou admin du groupe)" on public.todo_lists;
 create policy "todo_lists : modifier (auteur ou admin du groupe)"
   on public.todo_lists for update to authenticated
   using (user_id = (select auth.uid()) or (group_id is not null and public.is_group_admin(group_id)))
@@ -326,17 +350,20 @@ create policy "todo_lists : modifier (auteur ou admin du groupe)"
     or (group_id is not null and public.is_group_member(group_id))
   );
 
+drop policy if exists "todo_lists : supprimer (auteur ou admin du groupe)" on public.todo_lists;
 create policy "todo_lists : supprimer (auteur ou admin du groupe)"
   on public.todo_lists for delete to authenticated
   using (user_id = (select auth.uid()) or (group_id is not null and public.is_group_admin(group_id)));
 
-drop policy "todo_items : gérer ses tâches" on public.todo_items;
+drop policy if exists "todo_items : gérer ses tâches" on public.todo_items;
 
+drop policy if exists "todo_items : voir les tâches des listes visibles" on public.todo_items;
 create policy "todo_items : voir les tâches des listes visibles"
   on public.todo_items for select to authenticated
   using (exists (select 1 from public.todo_lists l where l.id = list_id));
 
 -- Ajouter : dans ses listes, ou dans une liste partagée d'un de ses groupes.
+drop policy if exists "todo_items : ajouter" on public.todo_items;
 create policy "todo_items : ajouter"
   on public.todo_items for insert to authenticated
   with check (
@@ -349,6 +376,7 @@ create policy "todo_items : ajouter"
   );
 
 -- Modifier / supprimer : l'auteur de la tâche, le propriétaire de la liste, ou un admin du groupe.
+drop policy if exists "todo_items : modifier" on public.todo_items;
 create policy "todo_items : modifier"
   on public.todo_items for update to authenticated
   using (
@@ -360,6 +388,7 @@ create policy "todo_items : modifier"
     )
   );
 
+drop policy if exists "todo_items : supprimer" on public.todo_items;
 create policy "todo_items : supprimer"
   on public.todo_items for delete to authenticated
   using (
@@ -371,16 +400,19 @@ create policy "todo_items : supprimer"
     )
   );
 
-drop policy "todo_completions : gérer ses coches" on public.todo_completions;
+drop policy if exists "todo_completions : gérer ses coches" on public.todo_completions;
 
+drop policy if exists "todo_completions : voir" on public.todo_completions;
 create policy "todo_completions : voir"
   on public.todo_completions for select to authenticated
   using (user_id = (select auth.uid()) or exists (select 1 from public.todo_items i where i.id = item_id));
 
+drop policy if exists "todo_completions : cocher pour soi" on public.todo_completions;
 create policy "todo_completions : cocher pour soi"
   on public.todo_completions for insert to authenticated
   with check (user_id = (select auth.uid()) and exists (select 1 from public.todo_items i where i.id = item_id));
 
+drop policy if exists "todo_completions : décocher pour soi" on public.todo_completions;
 create policy "todo_completions : décocher pour soi"
   on public.todo_completions for delete to authenticated
   using (user_id = (select auth.uid()));
@@ -390,15 +422,18 @@ create policy "todo_completions : décocher pour soi"
 -- Uniquement sur une deadline ou une tâche partagée avec CE groupe.
 -- Chacun peut couper un rappel partagé pour lui-même (reminder_mutes).
 -- ---------------------------------------------------------------------
-alter table public.reminders add column group_id uuid references public.groups (id) on delete cascade;
+alter table public.reminders add column if not exists group_id uuid references public.groups (id) on delete cascade;
+alter table public.reminders drop constraint if exists reminders_shared_not_session;
 alter table public.reminders add constraint reminders_shared_not_session check (group_id is null or session_id is null);
 
-drop policy "reminders : gérer ses rappels" on public.reminders;
+drop policy if exists "reminders : gérer ses rappels" on public.reminders;
 
+drop policy if exists "reminders : voir les siens et ceux de ses groupes" on public.reminders;
 create policy "reminders : voir les siens et ceux de ses groupes"
   on public.reminders for select to authenticated
   using (user_id = (select auth.uid()) or (group_id is not null and public.is_group_member(group_id)));
 
+drop policy if exists "reminders : créer" on public.reminders;
 create policy "reminders : créer"
   on public.reminders for insert to authenticated
   with check (
@@ -415,11 +450,12 @@ create policy "reminders : créer"
     and (group_id is null or public.is_group_member(group_id))
   );
 
+drop policy if exists "reminders : supprimer (auteur ou admin du groupe)" on public.reminders;
 create policy "reminders : supprimer (auteur ou admin du groupe)"
   on public.reminders for delete to authenticated
   using (user_id = (select auth.uid()) or (group_id is not null and public.is_group_admin(group_id)));
 
-create table public.reminder_mutes (
+create table if not exists public.reminder_mutes (
   reminder_id uuid not null references public.reminders (id) on delete cascade,
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   primary key (reminder_id, user_id)
@@ -427,6 +463,7 @@ create table public.reminder_mutes (
 
 alter table public.reminder_mutes enable row level security;
 
+drop policy if exists "reminder_mutes : gérer les siens" on public.reminder_mutes;
 create policy "reminder_mutes : gérer les siens"
   on public.reminder_mutes for all to authenticated
   using (user_id = (select auth.uid()))
@@ -543,6 +580,15 @@ grant execute on function public.claim_due_reminders(integer) to service_role;
 -- Temps réel : Supabase Realtime diffuse les changements de ces tables aux
 -- navigateurs connectés, en respectant le RLS (chacun ne reçoit que ce qu'il voit).
 -- ---------------------------------------------------------------------
-alter publication supabase_realtime add table
-  public.groups, public.group_members, public.deadlines, public.deadline_completions,
-  public.todo_lists, public.todo_items, public.todo_completions, public.reminders;
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['groups', 'group_members', 'deadlines', 'deadline_completions',
+                           'todo_lists', 'todo_items', 'todo_completions', 'reminders'] loop
+    if not exists (select 1 from pg_publication_tables
+                    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
