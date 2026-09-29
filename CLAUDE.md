@@ -44,6 +44,8 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 - [x] Phase 3 : rappels (table `reminders`, vue `reminder_schedule` qui calcule `fire_at`), Web Push VAPID codé en Web Crypto (`supabase/functions/send-reminders/webpush.ts`, partagé Deno/Node, testé avec le vecteur RFC 8291), Edge Function `send-reminders` appelée chaque minute par pg_cron + pg_net (secret dans Vault), page Rappels, PWA (manifest, `public/sw.js`, icônes générées par `next/og`). Push sur téléphone : nécessite un déploiement HTTPS (Vercel, pas encore fait).
 - [x] Phase 4 : groupes (`groups`, `group_members` ; opérations via RPC security definer `create_group`, `join_group`, `leave_group`…), helpers RLS `is_group_member` / `is_group_admin` / `shares_group_with`. `group_id` sur deadlines, todo_lists (jamais scope session), reminders (jamais sur séance). « Fait » par membre (`deadline_completions` remplace `deadlines.done_at`). `reminder_mutes`. `claim_due_reminders` renvoie une ligne par destinataire (`recipient_id`). Realtime → `RealtimeRefresher` (router.refresh). Contextes client `GroupsProvider` / `RemindersProvider` chargés dans `(app)/layout.tsx`.
 
+- [x] Page Tâches façon To Do (`src/components/tasks/`) : vues intelligentes (`src/lib/tasks.ts`), marqueurs personnels `todo_item_flags` (migration 0004 : `important`, `my_day` = date du jour), ajout rapide `quickAddTask` (liste par défaut « Tâches »), mises à jour optimistes (`useOptimistic` + `applyTaskPatch`). Maquette de référence : https://claude.ai/artifact/N7uAoUsHC44rFUtAMyjTGK. Refusé pour l'instant : étapes, notes de tâche, glisser-déposer.
+
 ## Pistes suivantes
 
 - Déploiement Vercel (push sur téléphone, accès pour les camarades) + mettre à jour Site URL / Redirect URLs dans Supabase.

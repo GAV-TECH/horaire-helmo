@@ -9,10 +9,10 @@ export async function createTodoList(_prev: ActionResult | null, formData: FormD
   const { supabase } = await actionContext();
   const parsed = todoListSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return fail(firstError(parsed.error));
-  const { error } = await supabase.from("todo_lists").insert(parsed.data);
+  const { data, error } = await supabase.from("todo_lists").insert(parsed.data).select("id").single();
   if (error) return dbFail(error, "createTodoList");
   refresh();
-  return ok("Liste créée.");
+  return { ok: true, message: "Liste créée.", id: data.id as string }; // l'id permet d'ouvrir la nouvelle liste
 }
 
 export async function deleteTodoList(id: string): Promise<ActionResult> {

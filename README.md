@@ -119,6 +119,10 @@ Tester seul avec deux comptes : Chrome normal (compte 1) + fenêtre de navigatio
 
 > Pour de vrais camarades, il faudra : l'app en ligne (Vercel) et un SMTP (ex. Resend) pour que Supabase puisse leur envoyer les e-mails de confirmation.
 
+## 7. Page Tâches façon To Do (à faire une fois)
+
+SQL Editor → *New query* → colle [`supabase/migrations/0004_taches_perso.sql`](supabase/migrations/0004_taches_perso.sql) → **Run**. Ce script ajoute les marqueurs personnels « Important » (étoile) et « Ma journée ». Sans lui, les pages Tâches, Semaine et Groupes ne peuvent pas charger les tâches.
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire
@@ -135,6 +139,13 @@ Une note est liée à une séance par son UID. Si l'UID change, elle est retrouv
 - Chaque minute, **pg_cron** appelle l'**Edge Function** `send-reminders` (Supabase, Deno). Elle « réserve » les rappels dus (`claim_due_reminders`, jamais deux fois le même), puis envoie une notification Web Push à chaque appareil abonné. Pas d'envoi si la séance est annulée ou la tâche déjà faite.
 - Choix : une Edge Function + pg_cron plutôt qu'un cron Vercel, car le plan gratuit de Vercel ne lance ses crons qu'une fois par jour, et la fonction marche quel que soit l'hébergement de l'app.
 - Le chiffrement Web Push (RFC 8291) et la signature VAPID (RFC 8292) sont codés avec l'API standard Web Crypto (`supabase/functions/send-reminders/webpush.ts`), sans bibliothèque : le même fichier tourne dans Deno et dans Node, et il est validé par le vecteur de test officiel de la RFC.
+
+### Tâches
+- Mise en page inspirée de Microsoft To Do : listes à gauche, tâches au centre, détail à droite (sur téléphone : un écran à la fois).
+- Listes intelligentes : **Ma journée** (se vide toute seule le lendemain), **Important** (étoile), **Planifié** (en retard, aujourd'hui, demain, 7 jours, plus tard), **Toutes**, **Séances** (les tâches ajoutées depuis une séance de l'horaire, regroupées par séance).
+- Ajout rapide : « ＋ Ajouter une tâche », puis Entrée. Depuis une liste intelligente, la tâche va dans la liste personnelle « Tâches » (créée au besoin).
+- L'étoile et « Ma journée » sont **personnelles**, même sur une tâche partagée (table `todo_item_flags`).
+- Les tâches terminées sont repliées dans « Terminées ». Les clics s'affichent immédiatement (`useOptimistic`), puis sont enregistrés.
 
 ### Groupes et partage
 - Un groupe a des **administrateurs** (gèrent les membres, renomment, régénèrent le code, suppriment) et des **membres**. On rejoint avec un **code** (12 caractères) ou un **lien** `/groupes/rejoindre?code=…` (avec confirmation). Si le dernier admin part, le membre le plus ancien le devient ; si le dernier membre part, le groupe est supprimé.

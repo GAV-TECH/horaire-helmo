@@ -119,7 +119,8 @@ export async function loadTodoLists(supabase: SupabaseClient, userId: string): P
   // Une seule requête grâce aux relations : listes → tâches → coches.
   const { data, error } = await supabase
     .from("todo_lists")
-    .select("*, todo_items(*, todo_completions(user_id))")
+    // todo_item_flags : le RLS ne renvoie que MES marqueurs (étoile, Ma journée).
+    .select("*, todo_items(*, todo_completions(user_id), todo_item_flags(user_id, important, my_day))")
     .order("created_at");
   if (error) throw error;
 
@@ -134,8 +135,9 @@ export async function loadTodoLists(supabase: SupabaseClient, userId: string): P
     sessionKey: l.session_key,
     sessionStart: isoOrNull(l.session_start),
     items: ((l.todo_items ?? []) as ItemRow[])
-      .map(
-        (i): TodoItem => ({
+      .map((i): TodoItem => {
+        const flags = (i.todo_item_flags ?? []).find((f) => f.user_id === userId);
+        return {
           id: i.id,
           listId: i.list_id,
           authorId: i.user_id,
@@ -144,8 +146,10 @@ export async function loadTodoLists(supabase: SupabaseClient, userId: string): P
           position: i.position,
           done: i.todo_completions.some((c) => c.user_id === userId),
           doneBy: i.todo_completions.map((c) => c.user_id),
-        }),
-      )
+          important: flags?.important ?? false,
+          myDay: flags?.my_day ?? null,
+        };
+      })
       .sort((a, b) => a.position - b.position || a.title.localeCompare(b.title)),
   }));
 }
@@ -158,6 +162,7 @@ type ItemRow = {
   due_at: string | null;
   position: number;
   todo_completions: { user_id: string }[];
+  todo_item_flags: { user_id: string; important: boolean; my_day: string | null }[] | null;
 };
 
 export async function loadReminders(supabase: SupabaseClient): Promise<Reminder[]> {

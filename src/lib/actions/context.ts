@@ -3,7 +3,7 @@ import { getUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 /** Résultat renvoyé par les server actions au composant qui les appelle. */
-export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
+export type ActionResult = { ok: true; message?: string; id?: string } | { ok: false; error: string };
 
 export const fail = (error: string): ActionResult => ({ ok: false, error });
 export const ok = (message?: string): ActionResult => ({ ok: true, message });

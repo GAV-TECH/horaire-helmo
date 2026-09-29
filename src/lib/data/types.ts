@@ -42,6 +42,9 @@ export type TodoItem = {
   /** Faite par MOI. */
   done: boolean;
   doneBy: string[];
+  /** Marqueurs PERSONNELS (même sur une tâche partagée) : étoile, et jour "Ma journée" (AAAA-MM-JJ). */
+  important: boolean;
+  myDay: string | null;
 };
 
 export type TodoList = Shareable & {

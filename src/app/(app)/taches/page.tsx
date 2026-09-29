@@ -1,4 +1,4 @@
-import { TodoListsView } from "@/components/todos/TodoListsView";
+import { TasksApp } from "@/components/tasks/TasksApp";
 import { requireUser } from "@/lib/auth";
 import { coursesFrom, loadSessions, loadTodoLists } from "@/lib/data/queries";
 import { requestNow } from "@/lib/request-time";
@@ -10,5 +10,5 @@ export default async function TachesPage() {
   const now = await requestNow();
   const since = new Date(now - 365 * 24 * 60 * 60 * 1000).toISOString();
   const [lists, sessions] = await Promise.all([loadTodoLists(supabase, user.id), loadSessions(supabase, user.id, since)]);
-  return <TodoListsView lists={lists} courses={coursesFrom(sessions)} now={now} />;
+  return <TasksApp lists={lists} courses={coursesFrom(sessions)} now={now} />;
 }
