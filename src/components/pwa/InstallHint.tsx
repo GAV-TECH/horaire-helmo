@@ -15,21 +15,21 @@ export function InstallHint() {
   useEffect(() => {
     // L'évènement a été capté dès le chargement par le petit script du layout racine (window.__installPrompt).
     const w = window as Window & { __installPrompt?: InstallPromptEvent };
-    const usePrompt = () => {
+    const applyPrompt = () => {
       if (!w.__installPrompt) return;
       setPromptEvent(w.__installPrompt);
       setMode("prompt");
     };
     const onInstalled = () => setMode("installed");
-    window.addEventListener("installprompt-ready", usePrompt);
+    window.addEventListener("installprompt-ready", applyPrompt);
     window.addEventListener("appinstalled", onInstalled);
     // Détection après l'affichage (navigator n'existe pas côté serveur).
     const timer = setTimeout(() => {
-      usePrompt();
+      applyPrompt();
       setMode((m) => (m !== "hidden" ? m : isStandalone() ? "installed" : isIos() ? "ios" : "menu"));
     }, 0);
     return () => {
-      window.removeEventListener("installprompt-ready", usePrompt);
+      window.removeEventListener("installprompt-ready", applyPrompt);
       window.removeEventListener("appinstalled", onInstalled);
       clearTimeout(timer);
     };
