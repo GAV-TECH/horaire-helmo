@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { markChangesSeen } from "@/lib/actions/sessions";
 import { addSessionTask } from "@/lib/actions/todos";
-import { courseColor } from "@/lib/courses";
-import type { Deadline, Note, TodoItem } from "@/lib/data/types";
+import { courseColor, parseCourseTitle } from "@/lib/courses";
+import type { Course, Deadline, Note, TodoItem } from "@/lib/data/types";
 import type { StoredSession } from "@/lib/ics/types";
-import { dayKey, formatFr } from "@/lib/time";
+import { formatFr, isoToBrusselsInputs } from "@/lib/time";
+import { DeadlineEditor } from "@/components/deadlines/DeadlineEditor";
 import { DeadlineRow } from "@/components/items/DeadlineRow";
 import { NoteCard, NoteForm } from "@/components/items/NoteCard";
 import { TodoItemRow } from "@/components/items/TodoItemRow";
@@ -21,12 +22,15 @@ type Props = {
   notes: Note[];
   tasks: TodoItem[];
   courseDeadlines: Deadline[];
+  /** Pour le formulaire d'échéance : liste des cours et séances ("prochaine séance"). */
+  courses: Course[];
+  sessions: StoredSession[];
   now: number;
   onClose: () => void;
 };
 
 /** Panneau de détail : feuille en bas de l'écran sur mobile, panneau latéral sur grand écran. */
-export function SessionDetail({ session, notes, tasks, courseDeadlines, now, onClose }: Props) {
+export function SessionDetail({ session, notes, tasks, courseDeadlines, courses, sessions, now, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -37,6 +41,11 @@ export function SessionDetail({ session, notes, tasks, courseDeadlines, now, onC
   }, [onClose]);
 
   const color = courseColor(session.courseKey);
+  const parsed = parseCourseTitle(session.title);
+  const room = session.location ?? parsed.room;
+  const teachers = parsed.teachers.length ? parsed.teachers.join(", ") : session.teacher;
+  const [addingDeadline, setAddingDeadline] = useState(false);
+  const start = isoToBrusselsInputs(session.start);
 
   return (
     <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-labelledby="session-title">
@@ -44,9 +53,16 @@ export function SessionDetail({ session, notes, tasks, courseDeadlines, now, onC
       <aside className="absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl dark:bg-zinc-900 md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[28rem] md:rounded-none">
         <div className="mb-4 flex items-start gap-3">
           <span className="mt-1 h-4 w-4 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden />
-          <h2 id="session-title" className="flex-1 text-lg font-semibold leading-snug">
-            {session.title}
-          </h2>
+          <div className="flex-1">
+            <h2 id="session-title" className="text-lg font-semibold leading-snug">
+              {parsed.course}
+            </h2>
+            {parsed.isEvaluation ? (
+              <span className="mt-1 inline-block rounded bg-red-600 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">Évaluation</span>
+            ) : (
+              parsed.kind && <p className="text-sm capitalize text-zinc-500">{parsed.kind}</p>
+            )}
+          </div>
           <button
             ref={closeRef}
             type="button"
@@ -71,19 +87,56 @@ export function SessionDetail({ session, notes, tasks, courseDeadlines, now, onC
           <dd className="capitalize">{formatFr(session.start, "EEEE d MMMM yyyy")}</dd>
           <dt className="text-zinc-500">Horaire</dt>
           <dd>{timeRange(session)}</dd>
-          {session.location && (
+          {room && (
             <>
               <dt className="text-zinc-500">Local</dt>
-              <dd>{session.location}</dd>
+              <dd>{room}</dd>
             </>
           )}
-          {session.teacher && (
+          {teachers && (
             <>
-              <dt className="text-zinc-500">Enseignant</dt>
-              <dd>{session.teacher}</dd>
+              <dt className="text-zinc-500">Enseignant(s)</dt>
+              <dd>{teachers}</dd>
             </>
           )}
         </dl>
+
+        <Section title={`Échéances du cours${courseDeadlines.length ? ` (${courseDeadlines.length})` : ""}`}>
+          {courseDeadlines.length > 0 ? (
+            <ul className="mb-3 flex flex-col gap-1.5">
+              {courseDeadlines.map((d) => (
+                <DeadlineRow key={d.id} deadline={d} now={now} compact />
+              ))}
+            </ul>
+          ) : (
+            !addingDeadline && <p className="mb-2 text-sm text-zinc-500">Aucune échéance à venir pour ce cours.</p>
+          )}
+          {addingDeadline ? (
+            <div className="rounded-lg border border-blue-200 p-3 dark:border-blue-900">
+              {/* Pré-réglé "pour cette séance" : date et heure de début de la séance */}
+              <DeadlineEditor
+                courses={courses}
+                sessions={sessions}
+                now={now}
+                compact
+                initial={{ courseName: parsed.course, date: start.date, time: start.time }}
+                onDone={() => setAddingDeadline(false)}
+              />
+              <button type="button" onClick={() => setAddingDeadline(false)} className={`${buttonClass.ghost} mt-2`}>
+                Annuler
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={() => setAddingDeadline(true)} className={buttonClass.secondary}>
+                ＋ Ajouter une échéance
+              </button>
+              <Link href="/deadlines" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+                Toutes les échéances
+              </Link>
+            </div>
+          )}
+        </Section>
 
         <Section title="Rappels">
           <ReminderControl targetType="session" targetId={session.id} hasTime />
@@ -107,24 +160,6 @@ export function SessionDetail({ session, notes, tasks, courseDeadlines, now, onC
             </ul>
           )}
           <SessionTaskForm session={session} />
-        </Section>
-
-        <Section title="Deadlines du cours">
-          {courseDeadlines.length > 0 ? (
-            <ul className="mb-2 flex flex-col gap-1.5">
-              {courseDeadlines.map((d) => (
-                <DeadlineRow key={d.id} deadline={d} now={now} compact />
-              ))}
-            </ul>
-          ) : (
-            <p className="mb-2 text-sm text-zinc-500">Aucune deadline à venir pour ce cours.</p>
-          )}
-          <Link
-            href={`/deadlines?cours=${encodeURIComponent(session.title)}&date=${dayKey(session.start)}`}
-            className="text-sm text-blue-600 hover:underline dark:text-blue-400"
-          >
-            + Ajouter une deadline pour ce cours
-          </Link>
         </Section>
 
         {session.description && (
@@ -185,7 +220,8 @@ function SessionTaskForm({ session }: { session: StoredSession }) {
       <input type="hidden" name="courseName" value={session.title} />
       <input type="hidden" name="sessionKey" value={session.key} />
       <input type="hidden" name="sessionStart" value={session.start} />
-      <input type="hidden" name="listTitle" value={`${session.title} – ${formatFr(session.start, "d MMM")}`} />
+      {/* courseName reste l'intitulé complet (il sert à retrouver la séance) ; le nom de la liste est lisible. */}
+      <input type="hidden" name="listTitle" value={`${parseCourseTitle(session.title).course} – ${formatFr(session.start, "d MMM")}`} />
       <div className="flex gap-2">
         <input name="title" required maxLength={300} placeholder="Nouvelle tâche…" className={inputClass} aria-label="Nouvelle tâche" />
         <button type="submit" disabled={pending} className={buttonClass.primary}>

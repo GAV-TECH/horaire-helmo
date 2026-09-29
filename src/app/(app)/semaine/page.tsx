@@ -6,7 +6,7 @@ import { PageTitle } from "@/components/ui";
 import { buttonClass } from "@/components/styles";
 import { requireUser } from "@/lib/auth";
 import { fromDayKey, groupByDate, groupByDay, shiftDay, weekDays } from "@/lib/calendar";
-import { courseColor } from "@/lib/courses";
+import { courseColor, parseCourseTitle } from "@/lib/courses";
 import { loadDeadlines, loadSessions, loadTodoLists } from "@/lib/data/queries";
 import { requestNow } from "@/lib/request-time";
 import { dayKey, formatFr } from "@/lib/time";
@@ -100,7 +100,7 @@ export default async function SemainePage({ searchParams }: PageProps<"/semaine"
                     style={{ borderLeftColor: courseColor(s.courseKey) }}
                   >
                     <span className="w-24 shrink-0 text-xs tabular-nums text-zinc-500">{timeRange(s)}</span>
-                    <span className="font-medium">{s.title}</span>
+                    <span className="font-medium">{parseCourseTitle(s.title).course}</span>
                     {s.location && <span className="text-xs text-zinc-500">{s.location}</span>}
                     {badge && <span className="rounded bg-amber-500 px-1 text-[10px] font-semibold uppercase text-white no-underline">{badge}</span>}
                   </li>

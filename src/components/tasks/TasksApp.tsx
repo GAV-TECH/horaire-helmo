@@ -4,7 +4,7 @@ import { useMemo, useOptimistic, useState, useTransition } from "react";
 import type { ActionResult } from "@/lib/actions/context";
 import { quickAddTask, renameTodoItem, setTodoDue, setTodoImportant, setTodoMyDay } from "@/lib/actions/tasks";
 import { deleteTodoItem, setTodoDone } from "@/lib/actions/todos";
-import { courseColor } from "@/lib/courses";
+import { courseColor, parseCourseTitle } from "@/lib/courses";
 import type { Course, TodoList } from "@/lib/data/types";
 import {
   PLANNED_LABELS,
@@ -121,7 +121,7 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
         .sort((a, b) => (a[0].list.sessionStart ?? "").localeCompare(b[0].list.sessionStart ?? ""))
         .map((items) => ({
           key: items[0].list.id,
-          label: `${items[0].list.courseName ?? items[0].list.title}${items[0].list.sessionStart ? ` · ${formatSessionDate(items[0].list.sessionStart)}` : ""}`,
+          label: `${items[0].list.courseName ? parseCourseTitle(items[0].list.courseName).course : items[0].list.title}${items[0].list.sessionStart ? ` · ${formatSessionDate(items[0].list.sessionStart)}` : ""}`,
           items,
         }));
     }

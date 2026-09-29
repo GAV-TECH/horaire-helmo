@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionChanges, StoredSession } from "@/lib/ics/types";
-import type { Course, Deadline, Group, Note, Priority, Reminder, TodoItem, TodoList } from "./types";
+import type { Deadline, Group, Note, Priority, Reminder, TodoItem, TodoList } from "./types";
 
 /*
  * Lecture des données. Avec le client "utilisateur" (createClient), le RLS filtre déjà ;
@@ -227,9 +227,4 @@ export async function loadProfile(supabase: SupabaseClient, userId: string) {
   return { displayName: (data?.display_name as string | undefined) ?? "" };
 }
 
-/** Liste des cours (un par nom normalisé), pour les menus déroulants des formulaires. */
-export function coursesFrom(sessions: { courseKey: string; title: string }[]): Course[] {
-  const map = new Map<string, string>();
-  for (const s of sessions) if (!map.has(s.courseKey)) map.set(s.courseKey, s.title);
-  return [...map].map(([key, name]) => ({ key, name })).sort((a, b) => a.name.localeCompare(b.name, "fr"));
-}
+export { coursesFrom } from "@/lib/courses";

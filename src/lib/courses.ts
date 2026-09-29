@@ -70,6 +70,25 @@ export function sameCourse(a: string | null | undefined, b: string | null | unde
   return !!a && !!b && courseGroupKey(a) === courseGroupKey(b);
 }
 
+/**
+ * Liste des COURS (un par cours, pas un par séance ou par local), pour les menus déroulants.
+ * Nom affiché : la variante d'écriture la plus fréquente dans l'horaire.
+ */
+export function coursesFrom(sessions: { title: string }[]): { key: string; name: string }[] {
+  const variants = new Map<string, Map<string, number>>();
+  for (const s of sessions) {
+    const key = courseGroupKey(s.title);
+    if (!key) continue;
+    const name = parseCourseTitle(s.title).course;
+    const counts = variants.get(key) ?? new Map<string, number>();
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+    variants.set(key, counts);
+  }
+  return [...variants]
+    .map(([key, counts]) => ({ key, name: [...counts].sort((a, b) => b[1] - a[1])[0][0] }))
+    .sort((a, b) => a.name.localeCompare(b.name, "fr"));
+}
+
 /** Palette lisible sur fond clair comme sombre ; un même cours tombe toujours sur la même couleur. */
 const PALETTE = [
   "#2563eb", // bleu

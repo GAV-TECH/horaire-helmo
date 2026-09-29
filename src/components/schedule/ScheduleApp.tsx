@@ -8,6 +8,7 @@ import { markChangesSeen } from "@/lib/actions/sessions";
 import type { Deadline, Note, TodoList } from "@/lib/data/types";
 import type { StoredSession } from "@/lib/ics/types";
 import { attachToSessions } from "@/lib/sessions/attach";
+import { coursesFrom, parseCourseTitle, sameCourse } from "@/lib/courses";
 import type { SyncResult } from "@/lib/sync-types";
 import { dayKey, formatFr } from "@/lib/time";
 import { buttonClass } from "@/components/ui";
@@ -82,6 +83,7 @@ export function ScheduleApp({ sessions, notes, deadlines, lists, sync, initialDa
   );
 
   const openDeadlines = useMemo(() => deadlines.filter((d) => !d.doneAt), [deadlines]);
+  const courses = useMemo(() => coursesFrom(sessions), [sessions]);
   const changed = sessions.filter((s) => changeBadge(s) !== null);
   const today = dayKey(now);
 
@@ -148,7 +150,7 @@ export function ScheduleApp({ sessions, notes, deadlines, lists, sync, initialDa
           {changed.length <= 3 &&
             changed.map((s) => (
               <button key={s.key} type="button" onClick={() => setSelectedKey(s.key)} className="underline">
-                {s.title} ({formatFr(s.start, "EEE d")})
+                {parseCourseTitle(s.title).course} ({formatFr(s.start, "EEE d")})
               </button>
             ))}
           <button
@@ -220,7 +222,9 @@ export function ScheduleApp({ sessions, notes, deadlines, lists, sync, initialDa
           session={selected}
           notes={notesBySession.get(selected.key) ?? []}
           tasks={(tasksBySession.get(selected.key) ?? []).flatMap((l) => l.items)}
-          courseDeadlines={openDeadlines.filter((d) => d.courseKey === selected.courseKey && Date.parse(d.dueAt) > now)}
+          courseDeadlines={openDeadlines.filter((d) => sameCourse(d.courseName, selected.title) && Date.parse(d.dueAt) > now)}
+          courses={courses}
+          sessions={sessions}
           now={now}
           onClose={closeDetail}
         />

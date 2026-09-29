@@ -2,7 +2,7 @@ import { NoteCard } from "@/components/items/NoteCard";
 import { formatSessionDate } from "@/components/items/format";
 import { PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { courseColor } from "@/lib/courses";
+import { courseColor, parseCourseTitle } from "@/lib/courses";
 import { loadNotes, loadSessions } from "@/lib/data/queries";
 import type { Note } from "@/lib/data/types";
 import { attachToSessions } from "@/lib/sessions/attach";
@@ -58,7 +58,7 @@ function NoteHeader({ title, start, courseKey, cancelled }: { title: string; sta
   return (
     <h2 className="mb-1 flex items-center gap-2 text-sm">
       <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: courseColor(courseKey) }} aria-hidden />
-      <span className="font-semibold">{title}</span>
+      <span className="font-semibold">{parseCourseTitle(title).course}</span>
       <span className="text-zinc-500">{formatSessionDate(start)}</span>
       {cancelled && <span className="text-xs text-red-600">(annulée)</span>}
     </h2>

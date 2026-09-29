@@ -4,19 +4,14 @@ import Link from "next/link";
 import { useOptimistic, useState, useTransition } from "react";
 import { deleteDeadline, setDeadlineDone } from "@/lib/actions/deadlines";
 import { courseColor } from "@/lib/courses";
-import { PRIORITY_LABELS, type Deadline } from "@/lib/data/types";
+import type { Deadline } from "@/lib/data/types";
 import { DoneBy, SharedBadge } from "@/components/groups/share";
 import { useGroups } from "@/components/groups/GroupsContext";
+import { Countdown, Importance } from "@/components/deadlines/Countdown";
 import { ReminderControl } from "@/components/reminders/ReminderControl";
 import { canEdit } from "@/lib/groups";
 import { ErrorText, buttonClass } from "@/components/ui";
 import { formatDue } from "./format";
-
-const PRIORITY_STYLE = {
-  1: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-  2: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
-  3: "bg-zinc-50 text-zinc-400 dark:bg-zinc-900",
-} as const;
 
 export function DeadlineRow({ deadline, now, compact = false }: { deadline: Deadline; now: number; compact?: boolean }) {
   const [done, setOptimisticDone] = useOptimistic(deadline.doneAt !== null);
@@ -52,20 +47,19 @@ export function DeadlineRow({ deadline, now, compact = false }: { deadline: Dead
         aria-label={`Marquer « ${deadline.title} » comme ${done ? "à faire" : "terminée"}`}
       />
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-medium ${done ? "text-zinc-400 line-through" : ""}`}>
-          ⚑ {deadline.title}
-          {deadline.priority !== 2 && (
-            <span className={`ml-2 rounded px-1 text-[10px] font-semibold uppercase ${PRIORITY_STYLE[deadline.priority]}`}>
-              {PRIORITY_LABELS[deadline.priority]}
-            </span>
-          )}
-          <SharedBadge groupId={deadline.groupId} ownerId={deadline.ownerId} />
-        </p>
-        <p className="text-xs text-zinc-500">
-          <span className={overdue ? "font-medium text-red-600 dark:text-red-400" : ""}>
-            {formatDue(deadline.dueAt)}
-            {overdue && " · en retard"}
+        <div className="flex items-start gap-2">
+          <p className={`mr-auto text-sm font-medium ${done ? "text-zinc-400 line-through" : ""}`}>
+            ⚑ {deadline.title}
+            <SharedBadge groupId={deadline.groupId} ownerId={deadline.ownerId} />
+          </p>
+          {/* Le coin : importance + compte à rebours */}
+          <span className="flex shrink-0 items-center gap-1.5">
+            {!done && <Importance priority={deadline.priority} />}
+            <Countdown dueAt={deadline.dueAt} now={now} done={done} />
           </span>
+        </div>
+        <p className="text-xs text-zinc-500">
+          <span className={overdue ? "font-medium text-red-600 dark:text-red-400" : ""}>{formatDue(deadline.dueAt)}</span>
           {deadline.courseName && ` · ${deadline.courseName}`}
         </p>
         {deadline.groupId && <DoneBy groupId={deadline.groupId} doneBy={deadline.doneBy} />}

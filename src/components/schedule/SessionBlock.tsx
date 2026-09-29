@@ -1,4 +1,4 @@
-import { courseColor } from "@/lib/courses";
+import { courseColor, parseCourseTitle } from "@/lib/courses";
 import type { Session, StoredSession } from "@/lib/ics/types";
 import { formatFr } from "@/lib/time";
 
@@ -32,6 +32,9 @@ export function SessionBlock({ session, onSelect, variant, noteCount = 0, style 
   const color = courseColor(session.courseKey);
   const cancelled = session.status === "cancelled";
   const badge = changeBadge(session);
+  // "Construction en Béton : théorie / BULDGEN / 519 (CO)" → cours + type ; le local vient de LOCATION ou du titre.
+  const parsed = parseCourseTitle(session.title);
+  const room = session.location ?? parsed.room;
   const base =
     "relative text-left rounded-md border-l-4 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-opacity hover:opacity-90";
 
@@ -40,7 +43,7 @@ export function SessionBlock({ session, onSelect, variant, noteCount = 0, style 
       type="button"
       onClick={() => onSelect(session)}
       style={{ borderLeftColor: color, backgroundColor: `${color}1f`, ...style }}
-      className={`${base} ${variant === "grid" ? "px-1.5 py-1 text-xs" : "w-full px-3 py-2 text-sm"} ${cancelled ? "opacity-60" : ""} ${badge ? "ring-2 ring-amber-500" : ""}`}
+      className={`${base} ${variant === "grid" ? "px-1.5 py-1 text-xs" : "w-full px-3 py-2 text-sm"} ${cancelled ? "opacity-60" : ""} ${badge ? "ring-2 ring-amber-500" : parsed.isEvaluation && !cancelled ? "ring-2 ring-red-500" : ""}`}
       aria-label={`${session.title}, ${timeRange(session)}${session.location ? `, ${session.location}` : ""}${cancelled ? ", annulée" : ""}${badge ? `, ${badge}` : ""}${noteCount ? `, ${noteCount} note(s)` : ""}`}
     >
       {(badge || noteCount > 0) && (
@@ -51,11 +54,14 @@ export function SessionBlock({ session, onSelect, variant, noteCount = 0, style 
           )}
         </span>
       )}
-      <div className={`font-semibold leading-tight ${cancelled ? "line-through" : ""}`}>{session.title}</div>
+      {parsed.isEvaluation && !cancelled && (
+        <span className="mb-0.5 inline-block rounded bg-red-600 px-1 text-[10px] font-bold uppercase tracking-wide text-white">Évaluation</span>
+      )}
+      <div className={`font-semibold leading-tight ${cancelled ? "line-through" : ""}`}>{parsed.course}</div>
       <div className="leading-tight text-zinc-600 dark:text-zinc-300">
         {variant === "card" && <span>{timeRange(session)}</span>}
-        {variant === "card" && session.location && <span> · </span>}
-        {session.location && <span>{session.location}</span>}
+        {parsed.kind && !parsed.isEvaluation && <span>{variant === "card" ? " · " : ""}{parsed.kind}</span>}
+        {room && <span>{(variant === "card" || (parsed.kind && !parsed.isEvaluation)) ? " · " : ""}{room}</span>}
       </div>
       {cancelled && !badge && (
         <span className="mt-0.5 inline-block rounded bg-red-600 px-1 text-[10px] font-semibold uppercase text-white">Annulée</span>

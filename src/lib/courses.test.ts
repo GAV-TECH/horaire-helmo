@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { courseColor, courseGroupKey, courseKey, parseCourseTitle, sameCourse } from "./courses";
+import { courseColor, courseGroupKey, courseKey, coursesFrom, parseCourseTitle, sameCourse } from "./courses";
 
 // Intitulés au format réel du flux HELMO (enseignants et locaux fictifs).
 describe("parseCourseTitle", () => {
@@ -34,6 +34,19 @@ describe("parseCourseTitle", () => {
     expect(parseCourseTitle("Modelling and system analysis : laboratoire et projet / LEROY / B-3 (88) (CO)").kind).toBe(
       "laboratoire et projet",
     );
+  });
+});
+
+describe("coursesFrom", () => {
+  it("donne un cours par matière, avec l'écriture la plus fréquente", () => {
+    const sessions = [
+      "Construction de machines / A / 519 (CO)",
+      "Construction de machines / A / 619 (CO)",
+      "Construction des machines - projet / B / 419 (CO)",
+      "Thermodynamique : théorie / C / 629 (CO)",
+      "Thermodynamique - évaluation / C / 413 (CO)",
+    ].map((title) => ({ title }));
+    expect(coursesFrom(sessions).map((c) => c.name)).toEqual(["Construction de machines", "Thermodynamique"]);
   });
 });
 
