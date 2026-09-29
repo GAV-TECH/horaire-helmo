@@ -46,6 +46,24 @@ export type TodoList = {
   items: TodoItem[];
 };
 
+export type ReminderTarget = "session" | "deadline" | "todo";
+
+export type Reminder = {
+  id: string;
+  targetType: ReminderTarget;
+  targetId: string;
+  /** Décalage avant la cible (ex. 60 = 1 h avant), ou null si date précise. */
+  offsetMinutes: number | null;
+  remindAt: string | null;
+  /** Heure effective de déclenchement (recalculée si la cible bouge). */
+  fireAt: string | null;
+  sentAt: string | null;
+  targetTitle: string | null;
+  targetDetail: string | null;
+  targetAt: string | null;
+  targetDone: boolean;
+};
+
 /** Un cours connu (déduit des séances), pour les menus déroulants. */
 export type Course = { key: string; name: string };
 

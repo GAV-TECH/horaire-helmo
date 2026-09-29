@@ -7,7 +7,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "supabase/functions/**/*.test.ts"],
     // Fuseau volontairement différent de Bruxelles : les tests prouvent que le code ne dépend pas du fuseau de la machine.
     env: { TZ: "America/New_York" },
   },

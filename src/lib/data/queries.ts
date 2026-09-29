@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionChanges, StoredSession } from "@/lib/ics/types";
-import type { Course, Deadline, Note, Priority, TodoItem, TodoList } from "./types";
+import type { Course, Deadline, Note, Priority, Reminder, TodoItem, TodoList } from "./types";
 
 /*
  * Lecture des données. Avec le client "utilisateur" (createClient), le RLS filtre déjà ;
@@ -142,6 +142,24 @@ type ItemRow = {
   position: number;
   todo_completions: { user_id: string }[];
 };
+
+export async function loadReminders(supabase: SupabaseClient, userId: string): Promise<Reminder[]> {
+  const { data, error } = await supabase.from("reminder_schedule").select("*").eq("user_id", userId).order("fire_at");
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    targetType: r.target_type,
+    targetId: r.target_id,
+    offsetMinutes: r.offset_minutes,
+    remindAt: isoOrNull(r.remind_at),
+    fireAt: isoOrNull(r.fire_at),
+    sentAt: isoOrNull(r.sent_at),
+    targetTitle: r.target_title,
+    targetDetail: r.target_detail,
+    targetAt: isoOrNull(r.target_at),
+    targetDone: Boolean(r.target_done),
+  }));
+}
 
 export async function loadProfile(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();

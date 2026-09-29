@@ -41,3 +41,6 @@ yarn-error.log*
 next-env.d.ts
 # le modèle de configuration, lui, est versionné (il ne contient aucun secret)
 !.env.example
+
+# SQL de planification rempli avec le secret (généré par npm run setup:push)
+supabase/cron.local.sql

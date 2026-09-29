@@ -16,6 +16,10 @@ const serverSchema = z.object({
     .string()
     .default("mon-espace.helmo.be")
     .transform((v) => v.split(",").map((h) => h.trim().toLowerCase()).filter(Boolean)),
+  // Web Push (phase 3) : facultatives, les notifications sont simplement désactivées sans elles.
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().min(40).optional(),
+  VAPID_PRIVATE_KEY: z.string().min(20).optional(),
+  VAPID_SUBJECT: z.string().startsWith("mailto:").optional(),
 });
 
 let cached: z.infer<typeof serverSchema> | null = null;

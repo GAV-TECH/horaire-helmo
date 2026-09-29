@@ -12,6 +12,7 @@ import { DeadlineRow } from "@/components/items/DeadlineRow";
 import { NoteCard, NoteForm } from "@/components/items/NoteCard";
 import { TodoItemRow } from "@/components/items/TodoItemRow";
 import { formatSessionDate } from "@/components/items/format";
+import { ReminderControl } from "@/components/reminders/ReminderControl";
 import { ActionMessage, buttonClass, inputClass, useFormAction } from "@/components/ui";
 import { timeRange } from "./SessionBlock";
 
@@ -83,6 +84,10 @@ export function SessionDetail({ session, notes, tasks, courseDeadlines, now, onC
             </>
           )}
         </dl>
+
+        <Section title="Rappels">
+          <ReminderControl targetType="session" targetId={session.id} hasTime />
+        </Section>
 
         <Section title={`Notes (${notes.length})`}>
           <div className="flex flex-col gap-2">

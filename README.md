@@ -2,7 +2,7 @@
 
 Application web qui importe l'horaire HELMO (flux iCalendar `.ics`) et permet de l'enrichir : annotations, deadlines, to-do lists, rappels et groupes d'étudiants.
 
-> **État actuel : phase 2.** Comptes (e-mail + mot de passe), lien `.ics` personnel chiffré, synchronisation avec détection des changements, notes, deadlines, to-do lists, vue « Cette semaine ».
+> **État actuel : phase 3.** Comptes (e-mail + mot de passe), lien `.ics` personnel chiffré, synchronisation avec détection des changements, notes, deadlines, to-do lists, vue « Cette semaine », **rappels avec notifications Web Push, application installable (PWA)**.
 
 ## Prérequis
 
@@ -74,6 +74,38 @@ Premier lancement : **Créer un compte** → clique le lien reçu par e-mail →
 
 Sur téléphone (même Wi-Fi) : ouvre l'adresse « Network » affichée par `npm run dev`. Confirme ton e-mail depuis le PC : le lien de l'e-mail pointe vers `localhost`.
 
+## 5. Notifications (phase 3, à faire une fois)
+
+Les rappels s'affichent toujours dans la page **Rappels**. Pour recevoir aussi des **notifications** :
+
+1. **Tables** : SQL Editor → *New query* → colle [`supabase/migrations/0002_phase3.sql`](supabase/migrations/0002_phase3.sql) → **Run**.
+2. **Clés** (dans le terminal VS Code, dossier du projet) :
+   ```powershell
+   npm run setup:push
+   ```
+   Le script ajoute à `.env.local` les clés VAPID (`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`) et `CRON_SECRET`, puis génère deux fichiers ignorés par Git : `supabase/.env.functions` et `supabase/cron.local.sql`. Tu peux remplacer `mailto:admin@example.com` par ton e-mail dans `VAPID_SUBJECT` (contact transmis aux services de push).
+3. **Connexion de l'outil Supabase** (ouvre le navigateur, une seule fois) :
+   ```powershell
+   npx supabase login
+   ```
+4. **Déployer l'Edge Function et lui donner ses secrets** :
+   ```powershell
+   npx supabase functions deploy send-reminders --project-ref mlxgvpghjhqzfqsuekuw --no-verify-jwt --use-api
+   npx supabase secrets set --env-file supabase/.env.functions --project-ref mlxgvpghjhqzfqsuekuw
+   ```
+   `--no-verify-jwt` : la fonction est protégée par son propre secret (`CRON_SECRET`), pas par une session utilisateur.
+5. **Planifier l'envoi chaque minute** : ouvre `supabase/cron.local.sql` dans VS Code, copie tout, colle dans SQL Editor → **Run**.
+6. **Activer sur l'appareil** : relance `npm run dev`, ouvre **Rappels** → *Activer les notifications* → *Envoyer un test*.
+
+Vérifier que la tâche planifiée tourne (SQL Editor) :
+```sql
+select status, return_message, start_time from cron.job_run_details order by start_time desc limit 5;
+select status_code, content from net._http_response order by created desc limit 5;
+```
+Journaux de la fonction : dashboard → *Edge Functions* → *send-reminders* → *Logs*.
+
+> 📱 **Sur téléphone**, les notifications exigent une adresse **HTTPS** : `http://192.168.x.x:3000` ne suffit pas (seul `localhost` est toléré, sur le PC). Il faut déployer l'app (Vercel) — ce sera l'étape suivante. Sur iPhone, l'app doit en plus être **installée sur l'écran d'accueil** (Safari → Partager → *Sur l'écran d'accueil*).
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire
@@ -84,6 +116,12 @@ Sur téléphone (même Wi-Fi) : ouvre l'adresse « Network » affichée par `npm
 
 ### Notes
 Une note est liée à une séance par son UID. Si l'UID change, elle est retrouvée par **nom du cours + heure de début**. Si rien ne correspond, elle apparaît dans **Notes → Notes orphelines**.
+
+### Rappels et notifications
+- Un rappel vise une séance, une deadline ou une tâche : **15 min / 1 h / 1 jour avant**, ou une **date précise**. Un rappel relatif suit sa cible si elle est déplacée (l'heure est recalculée par la vue `reminder_schedule`).
+- Chaque minute, **pg_cron** appelle l'**Edge Function** `send-reminders` (Supabase, Deno). Elle « réserve » les rappels dus (`claim_due_reminders`, jamais deux fois le même), puis envoie une notification Web Push à chaque appareil abonné. Pas d'envoi si la séance est annulée ou la tâche déjà faite.
+- Choix : une Edge Function + pg_cron plutôt qu'un cron Vercel, car le plan gratuit de Vercel ne lance ses crons qu'une fois par jour, et la fonction marche quel que soit l'hébergement de l'app.
+- Le chiffrement Web Push (RFC 8291) et la signature VAPID (RFC 8292) sont codés avec l'API standard Web Crypto (`supabase/functions/send-reminders/webpush.ts`), sans bibliothèque : le même fichier tourne dans Deno et dans Node, et il est validé par le vecteur de test officiel de la RFC.
 
 ### Sécurité
 - **RLS** sur toutes les tables : chacun ne voit que ses données.
@@ -96,6 +134,10 @@ Une note est liée à une séance par son UID. Si l'UID change, elle est retrouv
 ```
 supabase/migrations/          Scripts SQL à exécuter dans Supabase
 fixtures/exemple.ics          Horaire FICTIF utilisé par les tests
+supabase/functions/send-reminders/  Edge Function d'envoi des rappels (Deno) + chiffrement Web Push
+supabase/cron.sql             Modèle de planification (rempli par npm run setup:push)
+scripts/setup-push.mjs        Génère les clés VAPID et le secret de la tâche planifiée
+public/sw.js                  Service worker : reçoit les notifications
 src/proxy.ts                  Rafraîchit la session et protège les pages (ex-middleware)
 src/app/(auth)/               Connexion, inscription, mot de passe oublié
 src/app/(app)/                Pages connectées : horaire, semaine, tâches, deadlines, notes, réglages

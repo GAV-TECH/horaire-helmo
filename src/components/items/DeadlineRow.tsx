@@ -5,6 +5,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import { deleteDeadline, setDeadlineDone } from "@/lib/actions/deadlines";
 import { courseColor } from "@/lib/courses";
 import { PRIORITY_LABELS, type Deadline } from "@/lib/data/types";
+import { ReminderControl } from "@/components/reminders/ReminderControl";
 import { ErrorText, buttonClass } from "@/components/ui";
 import { formatDue } from "./format";
 
@@ -62,6 +63,11 @@ export function DeadlineRow({ deadline, now, compact = false }: { deadline: Dead
           {deadline.courseName && ` · ${deadline.courseName}`}
         </p>
         {!compact && deadline.details && <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600 dark:text-zinc-400">{deadline.details}</p>}
+        {!compact && !done && (
+          <div className="mt-1">
+            <ReminderControl targetType="deadline" targetId={deadline.id} hasTime />
+          </div>
+        )}
         <ErrorText>{error}</ErrorText>
       </div>
       {!compact && (

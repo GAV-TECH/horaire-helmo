@@ -3,6 +3,9 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { deleteTodoItem, setTodoDone } from "@/lib/actions/todos";
 import type { TodoItem } from "@/lib/data/types";
+import { reminderStatus } from "@/lib/reminders";
+import { ReminderControl } from "@/components/reminders/ReminderControl";
+import { useTargetReminders } from "@/components/reminders/RemindersContext";
 import { ErrorText, buttonClass } from "@/components/ui";
 import { formatDue } from "./format";
 
@@ -14,6 +17,9 @@ export function TodoItemRow({ item, subtitle, now }: { item: TodoItem; subtitle?
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showReminders, setShowReminders] = useState(false);
+  const { reminders } = useTargetReminders("todo", item.id);
+  const pendingReminders = reminders.filter((r) => reminderStatus(r, now) === "pending").length;
 
   const toggle = () =>
     startTransition(async () => {
@@ -40,13 +46,25 @@ export function TodoItemRow({ item, subtitle, now }: { item: TodoItem; subtitle?
         aria-label={`Marquer « ${item.title} » comme ${done ? "à faire" : "fait"}`}
       />
       <div className="min-w-0 flex-1">
-        <p className={`text-sm ${done ? "text-zinc-400 line-through" : ""}`}>{item.title}</p>
+        <p className={`text-sm ${done ? "text-zinc-400 line-through" : ""}`}>
+          {item.title}
+          {pendingReminders > 0 && !showReminders && (
+            <span className="ml-1 text-xs" title={`${pendingReminders} rappel(s) prévu(s)`}>
+              🔔
+            </span>
+          )}
+        </p>
         {(item.dueAt || subtitle) && (
           <p className="text-xs text-zinc-500">
             {item.dueAt && <span className={overdue ? "font-medium text-red-600 dark:text-red-400" : ""}>{formatDue(item.dueAt)}</span>}
             {item.dueAt && subtitle && " · "}
             {subtitle}
           </p>
+        )}
+        {showReminders && (
+          <div className="mt-1">
+            <ReminderControl targetType="todo" targetId={item.id} hasTime={item.dueAt !== null} startOpen />
+          </div>
         )}
         <ErrorText>{error}</ErrorText>
       </div>
@@ -60,14 +78,22 @@ export function TodoItemRow({ item, subtitle, now }: { item: TodoItem; subtitle?
           </button>
         </span>
       ) : (
-        <button
-          type="button"
-          onClick={() => setConfirmDelete(true)}
-          className={`${buttonClass.ghost} opacity-60 group-hover:opacity-100`}
-          aria-label={`Supprimer « ${item.title} »`}
-        >
-          ✕
-        </button>
+        <span className="flex gap-0.5 opacity-60 group-hover:opacity-100">
+          {!done && (
+            <button
+              type="button"
+              onClick={() => setShowReminders(!showReminders)}
+              className={buttonClass.ghost}
+              aria-expanded={showReminders}
+              aria-label={`Rappels de « ${item.title} »`}
+            >
+              🔔
+            </button>
+          )}
+          <button type="button" onClick={() => setConfirmDelete(true)} className={buttonClass.ghost} aria-label={`Supprimer « ${item.title} »`}>
+            ✕
+          </button>
+        </span>
       )}
     </li>
   );

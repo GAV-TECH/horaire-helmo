@@ -10,6 +10,8 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: "Horaire HELMO",
   description: "Mon horaire de cours enrichi : notes, deadlines, tâches et rappels.",
+  // iOS : ouverture en plein écran depuis l'écran d'accueil, avec ce nom sous l'icône.
+  appleWebApp: { capable: true, title: "Horaire", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

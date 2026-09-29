@@ -9,7 +9,9 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 - Next.js 16 (App Router) + TypeScript + Tailwind CSS 4. **Lire `node_modules/next/dist/docs/` avant d'utiliser une API Next** : `proxy.ts` remplace `middleware.ts`, `refresh()` de `next/cache` après une mutation, `PageProps<"/route">` / `LayoutProps` globaux.
 - Supabase Cloud : auth e-mail + mot de passe, Postgres + RLS (`@supabase/ssr`, `getClaims()` côté serveur). SQL dans `supabase/migrations/`, exécuté à la main dans le SQL Editor (pas de CLI).
 - `ical.js` (serveur), `date-fns` v4 + `@date-fns/tz`, `zod` v4, `react-markdown`, Vitest.
-- À venir : PWA + Web Push (VAPID), Edge Function + pg_cron pour les rappels, Realtime pour les groupes. Hébergement prévu : Vercel.
+- Supabase Edge Function (Deno) `supabase/functions/send-reminders`, déployée avec `npx supabase functions deploy … --use-api` (pas de Docker). Son `index.ts` est exclu de tsc (globaux Deno) ; `webpush.ts` et `message.ts` sont du TS standard, testés par Vitest.
+- À venir : Realtime pour les groupes. Hébergement prévu : Vercel.
+- Projet Supabase : ref `mlxgvpghjhqzfqsuekuw`. Secrets locaux dans `.env.local` (ne jamais les afficher) ; `npm run setup:push` génère VAPID + CRON_SECRET et les fichiers ignorés `supabase/.env.functions`, `supabase/cron.local.sql`.
 
 ## Commandes
 
@@ -37,5 +39,5 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 
 - [x] Phase 1 : parsing `.ics`, vues semaine / jour / à venir.
 - [x] Phase 2 : Supabase, auth, lien chiffré par utilisateur, synchro + badges de changement, notes (avec orphelines), deadlines, to-do lists (fait par utilisateur dans `todo_completions`), vue « Cette semaine ».
-- [ ] Phase 3 : rappels (séance / deadline / tâche : 1 j, 1 h, date perso), Web Push VAPID, Edge Function + pg_cron, liste des rappels à venir, PWA installable.
+- [x] Phase 3 : rappels (table `reminders`, vue `reminder_schedule` qui calcule `fire_at`), Web Push VAPID codé en Web Crypto (`supabase/functions/send-reminders/webpush.ts`, partagé Deno/Node, testé avec le vecteur RFC 8291), Edge Function `send-reminders` appelée chaque minute par pg_cron + pg_net (secret dans Vault), page Rappels, PWA (manifest, `public/sw.js`, icônes générées par `next/og`). Push sur téléphone : nécessite un déploiement HTTPS (Vercel, pas encore fait).
 - [ ] Phase 4 : groupes (admin / membre, invitations code + lien), partage lié au groupe + date + cours (jamais à un UID personnel), statut fait par membre, Realtime. Les rappels partagés notifient tous les membres (chacun peut couper pour lui-même). Il faudra un SMTP perso pour inviter d'autres étudiants.
