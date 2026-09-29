@@ -1,0 +1,14 @@
+<!--
+  Modèle Supabase « Reset password » (Authentication → Emails → Templates).
+  Sujet à mettre dans le champ "Subject" :  Ton code de réinitialisation : {{ .Token }}
+-->
+<div style="font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #18181b;">
+  <p style="font-size: 20px; font-weight: 700; margin: 0 0 16px;">Horaire HELMO</p>
+  <p style="margin: 0 0 16px;">Tu as demandé à changer ton mot de passe. Saisis ce code dans l'application, avec ton nouveau mot de passe :</p>
+  <p style="font-size: 32px; font-weight: 700; letter-spacing: 8px; font-family: ui-monospace, Consolas, monospace; background: #f4f4f5; border-radius: 8px; padding: 16px; text-align: center; margin: 0 0 16px;">{{ .Token }}</p>
+  <p style="margin: 0 0 16px; color: #52525b; font-size: 14px;">Le code est valable pendant une heure.</p>
+  <p style="margin: 0 0 24px; font-size: 14px;">
+    Tu peux aussi <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery" style="color: #2563eb;">choisir un nouveau mot de passe en cliquant ici</a>.
+  </p>
+  <p style="margin: 0; color: #71717a; font-size: 12px;">Ce n'était pas toi ? Ignore cet e-mail : ton mot de passe actuel reste valable.</p>
+</div>

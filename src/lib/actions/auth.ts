@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { emailSchema, firstError, passwordSchema, signInSchema, signUpSchema } from "@/lib/validation";
 import { fail, ok, type ActionResult } from "./context";
@@ -26,7 +27,8 @@ export async function signIn(_prev: ActionResult | null, formData: FormData): Pr
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
     // Message volontairement vague : on ne révèle pas si l'adresse existe.
-    if (error.code === "email_not_confirmed") return fail("Confirme d'abord ton adresse via l'e-mail reçu.");
+    // Le formulaire reconnaît ce code "UNCONFIRMED" et propose de saisir le code reçu par e-mail.
+    if (error.code === "email_not_confirmed") return fail("UNCONFIRMED");
     return fail("E-mail ou mot de passe incorrect.");
   }
   redirect(safeNext(formData.get("next")));
@@ -52,7 +54,76 @@ export async function signUp(_prev: ActionResult | null, formData: FormData): Pr
   }
   // Si la confirmation par e-mail est désactivée dans Supabase, on est directement connecté.
   if (data.session) redirect("/parametres");
-  return ok("Compte créé ! Clique sur le lien reçu par e-mail pour l'activer, puis connecte-toi.");
+  return ok("Compte créé ! Saisis le code à 6 chiffres reçu par e-mail.");
+}
+
+/* ---------------------------------------------------------------------------------------
+ * Codes de sécurité reçus par e-mail (plutôt que des liens) : ils fonctionnent aussi dans
+ * l'app installée et sur un autre appareil que celui où l'on a fait la demande.
+ * ------------------------------------------------------------------------------------- */
+
+/** Le code peut être tapé avec des espaces ("123 456") : on ne garde que les chiffres. */
+const codeSchema = z
+  .string()
+  .transform((v) => v.replace(/\D/g, ""))
+  .pipe(z.string().regex(/^\d{6,10}$/, "Le code contient 6 chiffres."));
+
+function otpFail(error: { code?: string }): ActionResult {
+  if (error.code === "otp_expired") return fail("Code incorrect ou expiré. Vérifie le dernier e-mail reçu, ou demande un nouveau code.");
+  if (error.code === "over_email_send_rate_limit" || error.code === "over_request_rate_limit") {
+    return fail("Trop de tentatives. Attends une minute avant de réessayer.");
+  }
+  return fail("Le code n'a pas pu être vérifié. Réessaie ou demande un nouveau code.");
+}
+
+/** Inscription : vérifie le code reçu par e-mail ; le compte est activé et l'utilisateur connecté. */
+export async function verifySignupCode(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const email = emailSchema.safeParse(formData.get("email"));
+  const code = codeSchema.safeParse(formData.get("code"));
+  if (!email.success) return fail(firstError(email.error));
+  if (!code.success) return fail(firstError(code.error));
+
+  const supabase = await createClient();
+  // "email" est le type actuel ; "signup" est accepté par les anciennes configurations Supabase.
+  let { error } = await supabase.auth.verifyOtp({ email: email.data, token: code.data, type: "email" });
+  if (error) ({ error } = await supabase.auth.verifyOtp({ email: email.data, token: code.data, type: "signup" }));
+  if (error) return otpFail(error);
+  redirect("/parametres"); // première connexion : on invite à coller le lien de l'horaire
+}
+
+/** Renvoie le code d'inscription. Même réponse que le compte existe ou non (pas de fuite d'information). */
+export async function resendSignupCode(email: string): Promise<ActionResult> {
+  const parsed = emailSchema.safeParse(email);
+  if (!parsed.success) return fail(firstError(parsed.error));
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({ type: "signup", email: parsed.data });
+  if (error && (error.code === "over_email_send_rate_limit" || error.code === "over_request_rate_limit")) {
+    return fail("Un code vient déjà d'être envoyé. Attends une minute avant d'en demander un autre.");
+  }
+  return ok("Si un compte en attente existe pour cette adresse, un nouveau code vient d'être envoyé.");
+}
+
+/** Mot de passe oublié, étape 2 : code reçu + nouveau mot de passe → connecté avec le nouveau mot de passe. */
+export async function resetPasswordWithCode(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const email = emailSchema.safeParse(formData.get("email"));
+  const code = codeSchema.safeParse(formData.get("code"));
+  const password = passwordSchema.safeParse(formData.get("password"));
+  if (!email.success) return fail(firstError(email.error));
+  if (!code.success) return fail(firstError(code.error));
+  if (!password.success) return fail(firstError(password.error));
+  if (formData.get("password") !== formData.get("confirm")) return fail("Les deux mots de passe ne correspondent pas.");
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.verifyOtp({ email: email.data, token: code.data, type: "recovery" });
+  if (error) return otpFail(error);
+  // Le code valide ouvre une session temporaire, qui permet de changer le mot de passe.
+  const { error: updateError } = await supabase.auth.updateUser({ password: password.data });
+  if (updateError) {
+    if (updateError.code === "same_password") return fail("Choisis un mot de passe différent de l'ancien.");
+    if (updateError.code === "weak_password") return fail("Mot de passe trop faible : choisis-en un plus long ou plus varié.");
+    return fail("Le mot de passe n'a pas pu être changé. Recommence la procédure.");
+  }
+  redirect("/");
 }
 
 export async function signOut() {
@@ -68,8 +139,8 @@ export async function requestPasswordReset(_prev: ActionResult | null, formData:
   await supabase.auth.resetPasswordForEmail(email.data, {
     redirectTo: `${await siteOrigin()}/auth/confirm?next=/parametres/mot-de-passe`,
   });
-  // Même réponse que l'adresse existe ou non.
-  return ok("Si un compte existe pour cette adresse, un e-mail de réinitialisation vient d'être envoyé.");
+  // Même réponse que l'adresse existe ou non (on ne révèle pas quels comptes existent).
+  return ok("Si un compte existe pour cette adresse, un code vient d'être envoyé par e-mail.");
 }
 
 export async function updatePassword(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
