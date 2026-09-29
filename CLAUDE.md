@@ -46,6 +46,9 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 
 - [x] Page Tâches façon To Do (`src/components/tasks/`) : vues intelligentes (`src/lib/tasks.ts`), marqueurs personnels `todo_item_flags` (migration 0004 : `important`, `my_day` = date du jour), ajout rapide `quickAddTask` (liste par défaut « Tâches »), mises à jour optimistes (`useOptimistic` + `applyTaskPatch`). Maquette de référence : https://claude.ai/artifact/N7uAoUsHC44rFUtAMyjTGK. Refusé pour l'instant : étapes, notes de tâche, glisser-déposer.
 
+- [x] Format HELMO réel : SUMMARY = `Cours : type / ENSEIGNANTS / local (CO)` ; HELMO envoie chaque séance **deux fois** (dédoublonnée dans `parseIcs`, anciennes copies `UID#début` supprimées par `legacyDuplicates` à la synchro). `parseCourseTitle` / `courseGroupKey` / `sameCourse` / `coursesFrom` dans `src/lib/courses.ts` : `courseColor` et les listes de cours travaillent par COURS. ⚠️ `session.courseKey` (intitulé complet normalisé) reste l'identifiant de secours des notes/listes : ne pas le changer.
+- [x] Page Échéances (`/deadlines`, `src/components/deadlines/`) : évaluations détectées dans l'horaire + deadlines, compte à rebours et importance (`src/lib/deadlines.ts`), édition sur place (`DeadlineEditor`, raccourci « Prochaine séance »).
+
 ## Pistes suivantes
 
 - Déploiement Vercel (push sur téléphone, accès pour les camarades) + mettre à jour Site URL / Redirect URLs dans Supabase.
