@@ -20,8 +20,8 @@ export function weekDays(key: string): string[] {
 }
 
 /** Regroupe les séances par jour de Bruxelles. Une séance sur plusieurs jours apparaît chaque jour concerné. */
-export function groupByDay(sessions: Session[]): Map<string, Session[]> {
-  const map = new Map<string, Session[]>();
+export function groupByDay<S extends Pick<Session, "start" | "end">>(sessions: S[]): Map<string, S[]> {
+  const map = new Map<string, S[]>();
   for (const session of sessions) {
     const first = dayKey(session.start);
     // -1 ms : une séance qui finit pile à minuit n'appartient pas au jour suivant.
@@ -32,6 +32,18 @@ export function groupByDay(sessions: Session[]): Map<string, Session[]> {
       list.push(session);
       map.set(key, list);
     }
+  }
+  return map;
+}
+
+/** Regroupe des éléments ponctuels (deadlines, tâches) par jour de Bruxelles selon une de leurs dates. */
+export function groupByDate<T>(items: T[], dateOf: (item: T) => string | null): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const item of items) {
+    const date = dateOf(item);
+    if (!date) continue;
+    const key = dayKey(date);
+    map.set(key, [...(map.get(key) ?? []), item]);
   }
   return map;
 }

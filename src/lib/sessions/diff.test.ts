@@ -1,0 +1,117 @@
+import { describe, expect, it } from "vitest";
+import type { Session, StoredSession } from "@/lib/ics/types";
+import { diffSessions } from "./diff";
+
+const NOW = new Date("2025-10-01T10:00:00.000Z");
+
+function session(overrides: Partial<Session> = {}): Session {
+  return {
+    key: "poo-1",
+    uid: "poo-1",
+    recurrenceId: null,
+    title: "Programmation",
+    courseKey: "programmation",
+    location: "L2.05",
+    teacher: null,
+    start: "2025-10-06T06:30:00.000Z",
+    end: "2025-10-06T08:30:00.000Z",
+    allDay: false,
+    description: null,
+    status: "active",
+    ...overrides,
+  };
+}
+
+function stored(overrides: Partial<StoredSession> = {}): StoredSession {
+  return { ...session(), id: "id-1", changes: {}, changesSeen: true, ...overrides };
+}
+
+describe("diffSessions", () => {
+  it("première synchro : tout est inséré sans aucun badge", () => {
+    const writes = diffSessions([], [session(), session({ key: "b", uid: "b" })], NOW);
+    expect(writes).toHaveLength(2);
+    expect(writes.every((w) => !w.id && w.changesSeen && Object.keys(w.changes).length === 0)).toBe(true);
+  });
+
+  it("n'écrit rien si rien n'a changé", () => {
+    expect(diffSessions([stored()], [session()], NOW)).toEqual([]);
+  });
+
+  it("détecte une séance déplacée et garde l'horaire d'origine", () => {
+    const [write] = diffSessions([stored()], [session({ start: "2025-10-06T08:30:00.000Z", end: "2025-10-06T10:30:00.000Z" })], NOW);
+    expect(write.id).toBe("id-1");
+    expect(write.changes.moved).toEqual({ fromStart: "2025-10-06T06:30:00.000Z", fromEnd: "2025-10-06T08:30:00.000Z" });
+    expect(write.changesSeen).toBe(false);
+  });
+
+  it("retire le badge si la séance revient à son horaire d'origine", () => {
+    const moved = stored({
+      start: "2025-10-06T08:30:00.000Z",
+      end: "2025-10-06T10:30:00.000Z",
+      changes: { moved: { fromStart: "2025-10-06T06:30:00.000Z", fromEnd: "2025-10-06T08:30:00.000Z" } },
+      changesSeen: false,
+    });
+    const [write] = diffSessions([moved], [session()], NOW);
+    expect(write.changes).toEqual({});
+    expect(write.changesSeen).toBe(true);
+  });
+
+  it("détecte un changement de local", () => {
+    const [write] = diffSessions([stored()], [session({ location: "Auditoire A" })], NOW);
+    expect(write.changes).toEqual({ room: { from: "L2.05" } });
+  });
+
+  it("garde 'vu' si l'utilisateur a déjà vu ce changement", () => {
+    const seen = stored({ location: "Auditoire A", changes: { room: { from: "L2.05" } }, changesSeen: true });
+    expect(diffSessions([seen], [session({ location: "Auditoire A" })], NOW)).toEqual([]);
+  });
+
+  it("repasse en 'non vu' si un nouveau changement arrive", () => {
+    const seen = stored({ location: "Auditoire A", changes: { room: { from: "L2.05" } }, changesSeen: true });
+    const [write] = diffSessions([seen], [session({ location: "Auditoire B" })], NOW);
+    expect(write.changes.room).toEqual({ from: "L2.05" });
+    expect(write.changesSeen).toBe(false);
+  });
+
+  it("détecte une annulation explicite (STATUS:CANCELLED)", () => {
+    const [write] = diffSessions([stored()], [session({ status: "cancelled" })], NOW);
+    expect(write.changes.cancelled).toBe(true);
+  });
+
+  it("marque annulée une séance future qui disparaît du flux, sans la supprimer", () => {
+    const other = session({ key: "autre", uid: "autre", courseKey: "anglais", title: "Anglais" });
+    const writes = diffSessions([stored()], [other], NOW);
+    const cancelled = writes.find((w) => w.id === "id-1");
+    expect(cancelled).toMatchObject({ status: "cancelled", changes: { cancelled: true }, changesSeen: false });
+  });
+
+  it("ne touche pas une séance passée qui disparaît du flux", () => {
+    const past = stored({ start: "2025-09-01T06:30:00.000Z", end: "2025-09-01T08:30:00.000Z" });
+    const other = session({ key: "autre", uid: "autre", courseKey: "anglais" });
+    expect(diffSessions([past], [other], NOW).find((w) => w.id === "id-1")).toBeUndefined();
+  });
+
+  it("n'annule rien si le flux reçu est vide (probable erreur passagère)", () => {
+    expect(diffSessions([stored()], [], NOW)).toEqual([]);
+  });
+
+  it("retrouve une séance dont l'UID a changé grâce au cours + heure de début", () => {
+    const [write] = diffSessions([stored()], [session({ key: "nouvel-uid", uid: "nouvel-uid" })], NOW);
+    expect(write).toMatchObject({ id: "id-1", key: "nouvel-uid", changes: {} });
+  });
+
+  it("signale une séance ajoutée dans les 14 jours, mais pas les semaines publiées plus tard", () => {
+    const soon = session({ key: "soon", uid: "soon", start: "2025-10-03T08:00:00.000Z", end: "2025-10-03T10:00:00.000Z" });
+    const later = session({ key: "later", uid: "later", start: "2025-12-01T08:00:00.000Z", end: "2025-12-01T10:00:00.000Z" });
+    const writes = diffSessions([stored()], [session(), soon, later], NOW);
+    expect(writes.find((w) => w.key === "soon")?.changes).toEqual({ added: true });
+    expect(writes.find((w) => w.key === "later")?.changes).toEqual({});
+  });
+
+  it("ne signale pas les modifications d'une séance passée", () => {
+    const past = stored({ start: "2025-09-01T06:30:00.000Z", end: "2025-09-01T08:30:00.000Z", location: "X" });
+    const [write] = diffSessions([past], [{ ...session(), start: past.start, end: past.end, location: "Y" }], NOW);
+    expect(write.location).toBe("Y");
+    expect(write.changes).toEqual({});
+  });
+});

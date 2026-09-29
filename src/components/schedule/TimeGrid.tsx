@@ -1,24 +1,29 @@
 "use client";
 
-import { fromDayKey, groupByDay, minutesOfDay } from "@/lib/calendar";
-import type { Session } from "@/lib/ics/types";
+import { fromDayKey, groupByDate, groupByDay, minutesOfDay } from "@/lib/calendar";
+import type { Deadline } from "@/lib/data/types";
+import type { StoredSession } from "@/lib/ics/types";
 import { layoutOverlaps } from "@/lib/layout";
 import { dayKey, formatFr } from "@/lib/time";
+import { DeadlineChip } from "./DeadlineChip";
 import { SessionBlock } from "./SessionBlock";
 
 type Props = {
   days: string[];
-  sessions: Session[];
+  sessions: StoredSession[];
+  deadlines: Deadline[];
+  noteCounts: Map<string, number>;
   now: number;
-  onSelect: (session: Session) => void;
+  onSelect: (session: StoredSession) => void;
   onSelectDay?: (day: string) => void;
 };
 
 const HOUR_HEIGHT = 56; // px par heure
 
 /** Grille horaire classique (heures en ordonnée, jours en colonnes), utilisée par les vues jour et semaine. */
-export function TimeGrid({ days, sessions, now, onSelect, onSelectDay }: Props) {
+export function TimeGrid({ days, sessions, deadlines, noteCounts, now, onSelect, onSelectDay }: Props) {
   const byDay = groupByDay(sessions);
+  const deadlinesByDay = groupByDate(deadlines, (d) => d.dueAt);
   const timed = (day: string) => (byDay.get(day) ?? []).filter((s) => !s.allDay);
   const allDay = (day: string) => (byDay.get(day) ?? []).filter((s) => s.allDay);
 
@@ -35,13 +40,13 @@ export function TimeGrid({ days, sessions, now, onSelect, onSelectDay }: Props) 
   }
   const hours = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
   const today = dayKey(now);
-  const hasAllDay = days.some((d) => allDay(d).length > 0);
+  const hasTopRow = days.some((d) => allDay(d).length > 0 || deadlinesByDay.has(d));
   const columns = { gridTemplateColumns: `3rem repeat(${days.length}, minmax(0, 1fr))` };
 
   return (
     <div className="rounded-lg border border-zinc-200 dark:border-zinc-800">
       {/* En-têtes des jours (collants pendant le défilement) */}
-      <div className="sticky top-0 z-20 grid border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95" style={columns}>
+      <div className="sticky top-0 z-20 grid border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 md:top-12" style={columns}>
         <div />
         {days.map((day) => (
           <button
@@ -56,13 +61,17 @@ export function TimeGrid({ days, sessions, now, onSelect, onSelectDay }: Props) 
         ))}
       </div>
 
-      {hasAllDay && (
+      {/* Rangée du haut : journées entières et deadlines */}
+      {hasTopRow && (
         <div className="grid border-b border-zinc-200 dark:border-zinc-800" style={columns}>
           <div className="p-1 text-[10px] text-zinc-500">jour</div>
           {days.map((day) => (
-            <div key={day} className="flex flex-col gap-1 p-1">
+            <div key={day} className="flex min-w-0 flex-col gap-1 p-1">
               {allDay(day).map((s) => (
-                <SessionBlock key={s.key} session={s} onSelect={onSelect} variant="grid" />
+                <SessionBlock key={s.key} session={s} onSelect={onSelect} variant="grid" noteCount={noteCounts.get(s.key)} />
+              ))}
+              {(deadlinesByDay.get(day) ?? []).map((d) => (
+                <DeadlineChip key={d.id} deadline={d} />
               ))}
             </div>
           ))}
@@ -97,6 +106,7 @@ export function TimeGrid({ days, sessions, now, onSelect, onSelectDay }: Props) 
                   session={item}
                   onSelect={onSelect}
                   variant="grid"
+                  noteCount={noteCounts.get(item.key)}
                   style={{
                     position: "absolute",
                     top,

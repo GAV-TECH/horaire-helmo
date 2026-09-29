@@ -22,3 +22,18 @@ export function formatFr(date: Date | string | number, pattern: string): string 
 export function dayKey(date: Date | string | number): string {
   return formatFr(date, "yyyy-MM-dd");
 }
+
+/**
+ * Convertit ce que l'utilisateur saisit dans un formulaire (date "AAAA-MM-JJ" + heure "HH:mm",
+ * sous-entendu à Bruxelles) en instant ISO UTC à stocker en base.
+ */
+export function brusselsToIso(date: string, time: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const [h, min] = time.split(":").map(Number);
+  return new Date(+new TZDate(y, m - 1, d, h, min, TIMEZONE)).toISOString();
+}
+
+/** Inverse de brusselsToIso : pré-remplit les champs date et heure d'un formulaire. */
+export function isoToBrusselsInputs(iso: string): { date: string; time: string } {
+  return { date: formatFr(iso, "yyyy-MM-dd"), time: formatFr(iso, "HH:mm") };
+}

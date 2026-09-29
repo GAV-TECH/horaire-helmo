@@ -2,72 +2,109 @@
 
 Application web qui importe l'horaire HELMO (flux iCalendar `.ics`) et permet de l'enrichir : annotations, deadlines, to-do lists, rappels et groupes d'étudiants.
 
-> **État actuel : phase 1**. Import du flux `.ics` (depuis `ICS_URL`), parsing, vues **semaine / jour / à venir**. Pas encore d'authentification ni de base de données.
+> **État actuel : phase 2.** Comptes (e-mail + mot de passe), lien `.ics` personnel chiffré, synchronisation avec détection des changements, notes, deadlines, to-do lists, vue « Cette semaine ».
 
 ## Prérequis
 
 - **Node.js 24 LTS** (`winget install OpenJS.NodeJS.LTS`, puis redémarrer VS Code)
 - Git
+- Un compte gratuit sur [supabase.com](https://supabase.com)
 
-## Installation
+## 1. Installation
 
 ```powershell
 cd C:\Users\gille\dev\horaire-helmo
 npm install
-Copy-Item .env.example .env.local
 ```
 
-Ouvre ensuite `.env.local` et remplace la valeur de `ICS_URL` par ton lien personnel :
+## 2. Configuration Supabase (à faire une fois, dans l'interface web)
 
-1. Sur mon-espace.helmo.be, ouvre **Mon horaire** et cherche l'option d'export ou d'abonnement iCalendar.
-2. Copie le lien (il ressemble à `https://mon-espace.helmo.be/MonHoraire/ICalendarEtudiant/Fichier?token=…`).
-3. Colle-le dans `.env.local`.
+1. **Créer le projet** : *New project*, région **Europe (Frankfurt)**. Note le mot de passe de la base (il ne sert pas à l'app, mais garde-le).
+2. **Créer les tables** : menu **SQL Editor** → *New query* → colle tout le contenu de [`supabase/migrations/0001_phase2.sql`](supabase/migrations/0001_phase2.sql) → **Run**. Résultat attendu : *Success. No rows returned*. Dans **Table Editor**, tu dois voir `profiles`, `ics_sources`, `sessions`, `notes`, `deadlines`, `todo_lists`, `todo_items`, `todo_completions`, toutes marquées « RLS enabled ».
+3. **Adresses du site** : **Authentication → URL Configuration**
+   - *Site URL* : `http://localhost:3000`
+   - *Redirect URLs* : ajoute `http://localhost:3000/**`
+4. **Modèles d'e-mail** : **Authentication → Emails**. Dans chaque modèle ci-dessous, remplace le lien `{{ .ConfirmationURL }}` par :
+   - *Confirm signup* : `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`
+   - *Reset password* : `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery`
 
-⚠️ Ce lien donne accès à ton horaire sans mot de passe. `.env.local` est ignoré par Git : ne le copie nulle part ailleurs. S'il fuit, régénère le token sur mon-espace.
+   Pourquoi : avec ce format, le lien fonctionne même si tu ouvres l'e-mail sur un autre appareil que celui où tu t'es inscrit.
+5. **Connexion par e-mail** : **Authentication → Sign In / Providers → Email** : activé, avec *Confirm email* coché (recommandé).
+6. **Récupérer les clés** : **Project Settings → API Keys**
+   - *Publishable key* (`sb_publishable_…`) → `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   - *Secret key* (`sb_secret_…`, bouton *Reveal*) → `SUPABASE_SECRET_KEY`
+   - L'URL du projet (bouton **Connect** en haut, ou *Project Settings → Data API*) → `NEXT_PUBLIC_SUPABASE_URL`
 
-## Lancement
+   Les anciennes clés *anon* / *service_role* (onglet *Legacy*) fonctionnent aussi.
+
+> ℹ️ Sans configuration SMTP, Supabase n'envoie qu'environ 2 e-mails par heure et **uniquement aux adresses des membres de ton organisation Supabase**. Suffisant pour toi ; pour inviter d'autres étudiants (phase 4), il faudra configurer un SMTP (ex. Resend, gratuit) dans *Authentication → Emails → SMTP Settings*.
+
+## 3. Variables d'environnement
 
 ```powershell
-npm run dev        # serveur de développement : http://localhost:3000
+Copy-Item .env.example .env.local
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Remplis `.env.local` (la commande `node` ci-dessus génère `ICS_ENCRYPTION_KEY`) :
+
+| Variable | Visible par le navigateur ? | Rôle |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | oui | Adresse du projet Supabase |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | oui | Clé publique : ne donne accès qu'à ce que le RLS autorise |
+| `SUPABASE_SECRET_KEY` | **non** | Clé secrète, contourne le RLS : serveur uniquement |
+| `ICS_ENCRYPTION_KEY` | **non** | Clé AES-256 qui chiffre les liens `.ics` en base |
+| `ICS_ALLOWED_HOSTS` | **non** | Domaines acceptés pour les liens `.ics` (défaut : `mon-espace.helmo.be`) |
+
+`ICS_URL` (phase 1) ne sert plus : tu peux la supprimer, le lien se colle maintenant dans **Réglages**.
+
+## 4. Lancement
+
+```powershell
+npm run dev        # http://localhost:3000
 npm test           # tests unitaires (Vitest)
 npm run typecheck  # vérification TypeScript
 npm run lint       # ESLint
 npm run build      # build de production
 ```
 
-Pour tester sur ton téléphone (même Wi-Fi) : ouvre l'adresse « Network » affichée par `npm run dev` (ex. `http://192.168.x.x:3000`).
+Premier lancement : **Créer un compte** → clique le lien reçu par e-mail → connecte-toi → **Réglages** → colle ton lien `.ics`.
 
-## Variables d'environnement
-
-| Variable | Où | Rôle |
-|---|---|---|
-| `ICS_URL` | serveur uniquement | Phase 1 : lien `.ics` personnel. Disparaîtra en phase 2 (lien stocké par utilisateur). |
-
-Les variables sans préfixe `NEXT_PUBLIC_` ne sont **jamais** envoyées au navigateur par Next.js.
+Sur téléphone (même Wi-Fi) : ouvre l'adresse « Network » affichée par `npm run dev`. Confirme ton e-mail depuis le PC : le lien de l'e-mail pointe vers `localhost`.
 
 ## Fonctionnement
 
-1. Le navigateur appelle `GET /api/schedule` (bouton **Actualiser** : `?refresh=1`).
-2. La route serveur télécharge le `.ics` (le navigateur ne le peut pas : CORS, et le lien est secret), le parse avec **ical.js**, puis renvoie les séances en JSON.
-3. Le résultat est gardé en cache **5 minutes** côté serveur. Une actualisation forcée est limitée à une toutes les 30 secondes.
-4. Toutes les dates sont stockées en UTC et affichées en heure de **Bruxelles**, quel que soit le fuseau du serveur (Vercel tourne en UTC).
+### Synchronisation de l'horaire
+- Le lien `.ics` est chiffré (AES-256-GCM) avant d'être stocké dans `ics_sources`, une table **sans aucune politique RLS** : seule la clé secrète du serveur peut la lire. Le lien n'est jamais renvoyé au navigateur ni écrit dans les logs.
+- À l'ouverture de l'horaire, le serveur resynchronise si la dernière synchro date de plus de **5 minutes**. Le bouton **Actualiser** appelle `POST /api/schedule/sync` (au plus une fois toutes les 30 s).
+- Chaque synchro compare le nouvel horaire à l'ancien (`src/lib/sessions/diff.ts`) : séance **déplacée**, **changement de local**, **annulée** (ou disparue du flux), **ajoutée** dans les 14 jours → badge orange jusqu'à ce que tu cliques « OK, vu ».
+- Les séances ne sont jamais supprimées : les notes gardent leur séance.
 
-Le lien n'apparaît ni dans les réponses de l'API, ni dans les messages d'erreur, ni dans les logs : les erreurs réseau sont filtrées par `redactSecrets()`.
+### Notes
+Une note est liée à une séance par son UID. Si l'UID change, elle est retrouvée par **nom du cours + heure de début**. Si rien ne correspond, elle apparaît dans **Notes → Notes orphelines**.
+
+### Sécurité
+- **RLS** sur toutes les tables : chacun ne voit que ses données.
+- Les server actions vérifient l'utilisateur et valident les entrées avec **zod**.
+- Seuls les liens `https://mon-espace.helmo.be/…` sont acceptés (sinon le serveur pourrait être utilisé pour télécharger n'importe quelle URL, y compris interne).
+- Les notes markdown ne peuvent pas contenir de HTML ni de script.
 
 ## Structure
 
 ```
+supabase/migrations/          Scripts SQL à exécuter dans Supabase
 fixtures/exemple.ics          Horaire FICTIF utilisé par les tests
-src/app/api/schedule/route.ts Route API : import de l'horaire
-src/app/page.tsx              Page d'accueil (rendu serveur → ScheduleApp)
-src/components/schedule/      Interface : grille horaire, listes, panneau de détail
-src/lib/ics/                  Téléchargement (serveur), parsing, masquage des secrets
-src/lib/calendar.ts           Jours, semaines, regroupement par jour (Bruxelles)
-src/lib/layout.ts             Placement côte à côte des séances qui se chevauchent
-src/lib/courses.ts            Normalisation des noms de cours et couleurs
-src/lib/time.ts               Fuseau Europe/Brussels et formatage en français
+src/proxy.ts                  Rafraîchit la session et protège les pages (ex-middleware)
+src/app/(auth)/               Connexion, inscription, mot de passe oublié
+src/app/(app)/                Pages connectées : horaire, semaine, tâches, deadlines, notes, réglages
+src/app/api/schedule/sync/    Route API de synchronisation
+src/app/auth/confirm/         Arrivée depuis les liens reçus par e-mail
+src/components/               Interface (schedule/, items/, deadlines/, todos/, settings/, auth/)
+src/lib/actions/              Server actions (écritures), toujours validées par zod
+src/lib/data/                 Lecture des données et types
+src/lib/ics/                  Téléchargement, parsing, masquage des secrets
+src/lib/sessions/             Comparaison des synchros et rattachement des notes (fonctions pures testées)
+src/lib/supabase/             Clients Supabase (utilisateur / admin)
+src/lib/sync.ts               Synchronisation d'un utilisateur
+src/lib/crypto.ts             Chiffrement du lien .ics
 ```
-
-## Configuration Supabase
-
-Arrive en phase 2 : les étapes à faire dans l'interface Supabase seront détaillées ici.

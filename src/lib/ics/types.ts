@@ -22,3 +22,20 @@ export type Session = {
   description: string | null;
   status: "active" | "cancelled";
 };
+
+/** Changements détectés entre deux synchros ; les valeurs "from" sont celles d'origine. */
+export type SessionChanges = {
+  moved?: { fromStart: string; fromEnd: string };
+  room?: { from: string | null };
+  cancelled?: true;
+  /** Séance apparue à la dernière minute (dans les 14 prochains jours). */
+  added?: true;
+};
+
+/** Séance telle que stockée en base, avec son historique de changements. */
+export type StoredSession = Session & {
+  id: string;
+  changes: SessionChanges;
+  /** false tant que l'utilisateur n'a pas vu le dernier changement (badge affiché). */
+  changesSeen: boolean;
+};
