@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Session, StoredSession } from "@/lib/ics/types";
-import { diffSessions } from "./diff";
+import { diffSessions, legacyDuplicates } from "./diff";
 
 const NOW = new Date("2025-10-01T10:00:00.000Z");
 
@@ -25,6 +25,15 @@ function session(overrides: Partial<Session> = {}): Session {
 function stored(overrides: Partial<StoredSession> = {}): StoredSession {
   return { ...session(), id: "id-1", changes: {}, changesSeen: true, ...overrides };
 }
+
+describe("legacyDuplicates", () => {
+  it("repère la 2e copie enregistrée sous la clé UID#début, et seulement elle", () => {
+    const original = stored({ id: "orig" });
+    const copy = stored({ id: "copie", key: `poo-1#${original.start}` });
+    const other = stored({ id: "autre", key: "poo-1#2025-10-13T06:30:00.000Z", start: "2025-10-13T06:30:00.000Z" }); // pas d'original à cette heure
+    expect(legacyDuplicates([original, copy, other])).toEqual([{ duplicateId: "copie", originalId: "orig" }]);
+  });
+});
 
 describe("diffSessions", () => {
   it("première synchro : tout est inséré sans aucun badge", () => {

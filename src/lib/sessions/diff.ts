@@ -7,6 +7,19 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Une séance qui apparaît dans ce délai est signalée comme "ajoutée" ; au-delà, c'est la publication normale des semaines suivantes. */
 const ADDED_WINDOW_MS = 14 * DAY_MS;
 
+/**
+ * Anciens doublons en base : avant correction, la 2e copie d'une séance envoyée deux fois par HELMO
+ * était enregistrée sous la clé "UID#début". On la reconnaît (même UID, même début, même intitulé
+ * qu'une séance de clé "UID") pour la supprimer ; ses notes éventuelles sont recollées à l'originale.
+ */
+export function legacyDuplicates(previous: StoredSession[]): { duplicateId: string; originalId: string }[] {
+  const originals = new Map(previous.map((p) => [`${p.key}|${p.start}|${p.title}`, p.id]));
+  return previous.flatMap((p) => {
+    const originalId = p.key === `${p.uid}#${p.start}` ? originals.get(`${p.uid}|${p.start}|${p.title}`) : undefined;
+    return originalId ? [{ duplicateId: p.id, originalId }] : [];
+  });
+}
+
 /** Clé de secours : même cours, même heure de début. Sert quand l'UID d'une séance change. */
 export function fallbackKey(courseKey: string, start: string): string {
   return `${courseKey}|${new Date(start).toISOString()}`;

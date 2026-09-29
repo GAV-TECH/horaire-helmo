@@ -77,8 +77,7 @@ export function parseIcs(text: string, options: ParseOptions = {}): Session[] {
     }
   }
 
-  dedupeKeys(sessions);
-  return sessions.sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
+  return dedupeKeys(sessions).sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
 }
 
 function toSession(
@@ -166,12 +165,23 @@ function clean(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-/** Certains flux réutilisent un même UID pour plusieurs événements : on rend chaque clé unique. */
-function dedupeKeys(sessions: Session[]) {
+/**
+ * Doublons : le flux HELMO envoie chaque séance DEUX fois (même UID, même contenu) → on n'en garde
+ * qu'une. Si un même UID sert à des événements vraiment différents, on rend chaque clé unique.
+ */
+function dedupeKeys(sessions: Session[]): Session[] {
+  const identical = new Set<string>();
+  const unique = sessions.filter((s) => {
+    const signature = [s.key, s.start, s.end, s.title, s.location, s.status].join("|");
+    if (identical.has(signature)) return false;
+    identical.add(signature);
+    return true;
+  });
   const seen = new Map<string, number>();
-  for (const session of sessions) {
+  for (const session of unique) {
     const n = seen.get(session.key) ?? 0;
     seen.set(session.key, n + 1);
     if (n > 0) session.key = `${session.key}#${session.start}`;
   }
+  return unique;
 }

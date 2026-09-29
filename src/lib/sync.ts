@@ -7,7 +7,7 @@ import { IcsFetchError, fetchIcs } from "@/lib/ics/fetch";
 import { IcsParseError, parseIcs } from "@/lib/ics/parse";
 import { redactSecrets } from "@/lib/ics/redact";
 import type { StoredSession } from "@/lib/ics/types";
-import { diffSessions, type SessionWrite } from "@/lib/sessions/diff";
+import { diffSessions, legacyDuplicates, type SessionWrite } from "@/lib/sessions/diff";
 import { indexSessions, matchSession } from "@/lib/sessions/match";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SyncResult } from "@/lib/sync-types";
@@ -57,7 +57,7 @@ async function run(userId: string, force: boolean): Promise<SyncResult> {
       throw new IcsFetchError("Le lien enregistré n'est pas un lien HELMO autorisé. Remplace-le dans les paramètres.");
     }
     const incoming = parseIcs(await fetchIcs(url));
-    const previous = await loadSessions(admin, userId);
+    const previous = await removeLegacyDuplicates(admin, userId, await loadSessions(admin, userId));
     const writes = diffSessions(previous, incoming, now);
     await writeSessions(admin, userId, writes);
     await relinkReferences(admin, userId, merge(previous, writes));
@@ -72,6 +72,27 @@ async function run(userId: string, force: boolean): Promise<SyncResult> {
     await admin.from("ics_sources").update({ last_synced_at: now.toISOString(), last_error: message }).eq("user_id", userId);
     return { status: "error", syncedAt: source.last_synced_at, error: message };
   }
+}
+
+/**
+ * Supprime les copies en double enregistrées avant la correction du parsing (HELMO envoie chaque
+ * séance deux fois). Les rappels posés sur une copie sont d'abord rattachés à l'originale ; les notes
+ * le sont ensuite par relinkReferences (même cours, même heure). Renvoie les séances restantes.
+ */
+async function removeLegacyDuplicates(admin: SupabaseClient, userId: string, previous: StoredSession[]) {
+  const duplicates = legacyDuplicates(previous);
+  if (duplicates.length === 0) return previous;
+  for (const { duplicateId, originalId } of duplicates) {
+    const { error } = await admin.from("reminders").update({ session_id: originalId }).eq("session_id", duplicateId).eq("user_id", userId);
+    if (error) throw dbError(error, "sync.duplicates.reminders");
+  }
+  const ids = duplicates.map((d) => d.duplicateId);
+  for (let i = 0; i < ids.length; i += 200) {
+    const { error } = await admin.from("sessions").delete().in("id", ids.slice(i, i + 200)).eq("user_id", userId);
+    if (error) throw dbError(error, "sync.duplicates");
+  }
+  const removed = new Set(ids);
+  return previous.filter((p) => !removed.has(p.id));
 }
 
 function toRow(userId: string, s: SessionWrite) {

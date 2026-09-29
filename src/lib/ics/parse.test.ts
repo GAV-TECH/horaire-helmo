@@ -110,7 +110,16 @@ describe("parseIcs", () => {
     });
   });
 
-  it("rend uniques les UID dupliqués", () => {
+  it("ne garde qu'un exemplaire d'un événement envoyé deux fois (comme le fait HELMO)", () => {
+    const start = fixture.indexOf("BEGIN:VEVENT\nUID:math-2025-10-08");
+    const end = fixture.indexOf("END:VEVENT", start) + "END:VEVENT\n".length;
+    const doubled = fixture.slice(0, end) + fixture.slice(start, end) + fixture.slice(end);
+    const parsed = parseIcs(doubled, range);
+    expect(parsed).toHaveLength(sessions.length);
+    expect(parsed.filter((s) => s.uid === "math-2025-10-08@exemple.test")).toHaveLength(1);
+  });
+
+  it("rend uniques les UID réutilisés pour des événements différents", () => {
     const duplicated = fixture.replace("UID:math-2025-10-08@exemple.test", "UID:poo-2025-10-06@exemple.test");
     const parsed = parseIcs(duplicated, range);
     expect(new Set(parsed.map((s) => s.key)).size).toBe(parsed.length);
