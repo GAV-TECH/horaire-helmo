@@ -108,12 +108,12 @@ Journaux de la fonction : dashboard → *Edge Functions* → *send-reminders* �
 
 ## 6. Groupes (phase 4, à faire une fois)
 
-1. **Tables** : SQL Editor → *New query* → colle [](supabase/migrations/0003_phase4.sql) → **Run**.
+1. **Tables** : SQL Editor → *New query* → colle [`supabase/migrations/0003_phase4.sql`](supabase/migrations/0003_phase4.sql) → **Run**.
 2. **Juste après**, redéploie la fonction d'envoi (elle envoie maintenant une notification par membre) :
-   \Windows PowerShell
-Copyright (C) Microsoft Corporation. All rights reserved.
-
-PS C:Usersgilledevhoraire-helmo> {"project_ref":"mlxgvpghjhqzfqsuekuw","functions":["send-reminders"],"dashboard_url":"https://supabase.com/dashboard/project/mlxgvpghjhqzfqsuekuw/functions","message":"Deployed Functions."}3. Relance .
+   ```powershell
+   npx supabase functions deploy send-reminders --project-ref mlxgvpghjhqzfqsuekuw --no-verify-jwt --use-api
+   ```
+3. Relance `npm run dev`.
 
 Tester seul avec deux comptes : Chrome normal (compte 1) + fenêtre de navigation privée (compte 2). Pour créer le 2e compte sans recevoir d'e-mail : *Authentication → Sign In / Providers → Email* → décocher *Confirm email* le temps du test.
 
@@ -137,13 +137,13 @@ Une note est liée à une séance par son UID. Si l'UID change, elle est retrouv
 - Le chiffrement Web Push (RFC 8291) et la signature VAPID (RFC 8292) sont codés avec l'API standard Web Crypto (`supabase/functions/send-reminders/webpush.ts`), sans bibliothèque : le même fichier tourne dans Deno et dans Node, et il est validé par le vecteur de test officiel de la RFC.
 
 ### Groupes et partage
-- Un groupe a des **administrateurs** (gèrent les membres, renomment, régénèrent le code, suppriment) et des **membres**. On rejoint avec un **code** (12 caractères) ou un **lien**  (avec confirmation). Si le dernier admin part, le membre le plus ancien le devient ; si le dernier membre part, le groupe est supprimé.
+- Un groupe a des **administrateurs** (gèrent les membres, renomment, régénèrent le code, suppriment) et des **membres**. On rejoint avec un **code** (12 caractères) ou un **lien** `/groupes/rejoindre?code=…` (avec confirmation). Si le dernier admin part, le membre le plus ancien le devient ; si le dernier membre part, le groupe est supprimé.
 - On partage des **deadlines**, des **listes de tâches** (toutes leurs tâches) et des **rappels** posés sur ces éléments (« pour tout le groupe »). Un élément partagé est lié au **groupe + date + nom de cours**, jamais à l'UID d'une séance personnelle (deux étudiants n'ont pas les mêmes UID). Une liste liée à une séance ne peut donc pas être partagée.
-- « Fait » est **par membre** (, ) : chacun coche pour soi, et voit « ✓ 2/4 · Alice, Bob ».
-- Un rappel partagé notifie tous les membres ; chacun peut le **couper pour lui** ().
+- « Fait » est **par membre** (`deadline_completions`, `todo_completions`) : chacun coche pour soi, et voit « ✓ 2/4 · Alice, Bob ».
+- Un rappel partagé notifie tous les membres ; chacun peut le **couper pour lui** (`reminder_mutes`).
 - Modifier/supprimer : l'auteur ou un admin du groupe. Tous les membres peuvent ajouter des tâches à une liste partagée.
-- **Temps réel** : Supabase Realtime prévient les navigateurs connectés d'un changement (en respectant le RLS), et la page se recharge depuis le serveur ().
-- **Confidentialité** : séances, notes, lien , abonnements push restent invisibles aux autres membres ; ils ne voient que ton nom affiché et ce que tu partages (vérifié par des tests RLS à 3 utilisateurs).
+- **Temps réel** : Supabase Realtime prévient les navigateurs connectés d'un changement (en respectant le RLS), et la page se recharge depuis le serveur (`router.refresh()`).
+- **Confidentialité** : séances, notes, lien `.ics`, abonnements push restent invisibles aux autres membres ; ils ne voient que ton nom affiché et ce que tu partages (vérifié par des tests RLS à 3 utilisateurs).
 
 ### Sécurité
 - **RLS** sur toutes les tables : chacun ne voit que ses données.
