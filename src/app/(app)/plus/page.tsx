@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { NAV_LINKS } from "@/components/nav-links";
+import { InstallHint } from "@/components/pwa/InstallHint";
 import { PageTitle } from "@/components/ui";
 import { cardClass } from "@/components/styles";
 
@@ -20,6 +21,9 @@ export default function PlusPage() {
           </li>
         ))}
       </ul>
+      <div className="mt-4">
+        <InstallHint />
+      </div>
     </div>
   );
 }

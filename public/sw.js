@@ -7,6 +7,27 @@
 self.addEventListener("install", () => self.skipWaiting()); // une nouvelle version s'active tout de suite
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
+/*
+ * Navigation : on passe par le réseau (pas de cache : l'horaire doit toujours être à jour).
+ * Sans réseau, on affiche une petite page "hors ligne" au lieu de l'erreur du navigateur.
+ * Plusieurs navigateurs exigent aussi ce gestionnaire pour proposer l'installation de l'app.
+ */
+const OFFLINE_PAGE = `<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hors ligne · Horaire HELMO</title>
+<body style="font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;text-align:center;padding:1rem">
+<div><p style="font-size:2rem;margin:0">📡</p><h1 style="font-size:1.2rem">Pas de connexion</h1>
+<p style="color:#71717a">L'horaire s'affichera dès que la connexion reviendra.</p>
+<button onclick="location.reload()" style="padding:.5rem 1rem;border-radius:.4rem;border:1px solid #d4d4d8;background:none;font:inherit">Réessayer</button></div></body></html>`;
+
+self.addEventListener("fetch", (event) => {
+  if (event.request.mode !== "navigate") return; // images, scripts, API : comportement normal du navigateur
+  event.respondWith(
+    fetch(event.request).catch(
+      () => new Response(OFFLINE_PAGE, { headers: { "Content-Type": "text/html; charset=utf-8" } }),
+    ),
+  );
+});
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {
