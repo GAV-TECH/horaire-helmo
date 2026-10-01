@@ -24,6 +24,12 @@ describe("vues de la page Tâches", () => {
   it("Ma journée : ajoutées aujourd'hui (pas hier) + échéance du prochain jour qui a des tâches", () => {
     expect(ids("jour")).toEqual(["a", "d"]); // d : échéance le 7 = demain ; c (le 8) attend son tour
   });
+  it("une tâche de séance sans échéance compte pour le jour de sa séance", () => {
+    const seance = flattenTasks([list("s", [item("lire")], { scope: "session", sessionStart: "2025-10-09T06:15:00.000Z" })]);
+    expect(tasksForView(seance, "jour", "2025-10-06").map((e) => e.item.id)).toEqual(["lire"]); // jeudi = prochain jour chargé
+    expect(tasksForView(seance, "planifie", "2025-10-06").map((e) => e.item.id)).toEqual(["lire"]);
+    expect(groupTasksByDay(seance, "2025-10-06")[0].label).toBe("Jeudi 9 octobre");
+  });
   it("Ma journée : rien demain → les tâches du jour d'après", () => {
     const sansDemain = flattenTasks([list("perso", [item("c", { dueAt: "2025-10-08T21:59:00.000Z" }), item("z", { dueAt: "2025-10-20T10:00:00.000Z" })])]);
     expect(tasksForView(sansDemain, "jour", "2025-10-06").map((e) => e.item.id)).toEqual(["c"]);

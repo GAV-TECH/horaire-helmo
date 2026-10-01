@@ -35,7 +35,7 @@ export function tasksForView(entries: TaskEntry[], view: string, today: string):
     case "important":
       return entries.filter((e) => e.item.important);
     case "planifie":
-      return entries.filter((e) => e.item.dueAt !== null);
+      return entries.filter((e) => taskDate(e) !== null);
     case "toutes":
       return entries;
     case "seances":
@@ -45,8 +45,19 @@ export function tasksForView(entries: TaskEntry[], view: string, today: string):
   }
 }
 
-/** Jour (à Bruxelles) de l'échéance d'une tâche, ou null. */
-const dueDay = (e: TaskEntry) => (e.item.dueAt ? dayKey(e.item.dueAt) : null);
+/**
+ * Date d'une tâche : son échéance, sinon (tâche de séance) le début de la séance, sinon null.
+ * Une tâche "à faire pour le cours de jeudi" compte ainsi pour jeudi sans devoir lui mettre une échéance.
+ */
+export function taskDate(e: TaskEntry): string | null {
+  return e.item.dueAt ?? (e.list.scope === "session" ? e.list.sessionStart : null);
+}
+
+/** Jour (à Bruxelles) de la tâche, ou null. */
+const dueDay = (e: TaskEntry) => {
+  const date = taskDate(e);
+  return date ? dayKey(date) : null;
+};
 
 /** Tâche en retard : non faite, échéance AVANT aujourd'hui (une échéance plus tôt aujourd'hui reste "aujourd'hui"). */
 export function isOverdue(e: TaskEntry, today: string): boolean {
@@ -83,12 +94,12 @@ export function splitOverdue(entries: TaskEntry[], today: string): { overdue: Ta
   return { overdue: entries.filter((e) => isOverdue(e, today)), rest: entries.filter((e) => !isOverdue(e, today)) };
 }
 
-/** Tri : échéance la plus proche d'abord (sans échéance à la fin), puis ordre d'ajout. */
+/** Tri : date (échéance ou séance) la plus proche d'abord (sans échéance à la fin), puis ordre d'ajout. */
 export function sortTasks(entries: TaskEntry[]): TaskEntry[] {
   return [...entries].sort((a, b) => {
     // Dates ISO : une comparaison simple de chaînes suffit (pas localeCompare, qui suit les règles de la langue).
-    const da = a.item.dueAt;
-    const db = b.item.dueAt;
+    const da = taskDate(a);
+    const db = taskDate(b);
     if (da !== db) {
       if (da === null) return 1; // sans échéance → en dernier
       if (db === null) return -1;
