@@ -9,7 +9,7 @@
  * Déploiement : voir README (npx supabase functions deploy send-reminders …).
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { buildNotification, type DueReminder } from "./message.ts";
+import { buildDigest, buildNotification, type DigestRow, type DueReminder } from "./message.ts";
 import { sendWebPush, type VapidKeys } from "./webpush.ts";
 
 /** Comparaison en temps constant : ne révèle pas, par la durée de réponse, combien de caractères sont justes. */
@@ -41,15 +41,30 @@ Deno.serve(async (req) => {
     subject: env("VAPID_SUBJECT"),
   };
 
+  const now = new Date();
+  /** Notifications à envoyer : rappels arrivés à échéance + débriefs du soir. */
+  const outbox: { userId: string; payload: string }[] = [];
+
   const { data, error } = await db.rpc("claim_due_reminders", { max_rows: 200 });
   if (error) {
     console.error("claim_due_reminders :", error.message);
     return Response.json({ error: "claim" }, { status: 500 });
   }
   const due = (data ?? []) as DueReminder[];
-  if (due.length === 0) return Response.json({ claimed: 0, sent: 0 });
+  for (const reminder of due) {
+    const notification = buildNotification(reminder, now);
+    if (notification) outbox.push({ userId: reminder.recipient_id, payload: JSON.stringify(notification) }); // sinon : fait / annulé / trop ancien
+  }
 
-  const userIds = [...new Set(due.map((r) => r.recipient_id))];
+  // Débrief quotidien (migration 0006). Si la fonction SQL n'existe pas encore, on l'ignore.
+  const { data: digestData, error: digestError } = await db.rpc("claim_daily_digests");
+  if (digestError) console.error("claim_daily_digests :", digestError.message);
+  const digests = (digestData ?? []) as DigestRow[];
+  for (const digest of digests) outbox.push({ userId: digest.user_id, payload: JSON.stringify(buildDigest(digest, now)) });
+
+  if (outbox.length === 0) return Response.json({ claimed: 0, digests: 0, sent: 0 });
+
+  const userIds = [...new Set(outbox.map((n) => n.userId))];
   const { data: subs, error: subsError } = await db
     .from("push_subscriptions")
     .select("id, user_id, endpoint, p256dh, auth")
@@ -59,17 +74,13 @@ Deno.serve(async (req) => {
     return Response.json({ error: "subscriptions" }, { status: 500 });
   }
 
-  const now = new Date();
   let sent = 0;
   let failed = 0;
   const gone = new Set<string>();
 
-  for (const reminder of due) {
-    const notification = buildNotification(reminder, now);
-    if (!notification) continue; // cible faite / annulée, ou rappel trop ancien
-    const payload = JSON.stringify(notification);
+  for (const { userId, payload } of outbox) {
     for (const sub of subs ?? []) {
-      if (sub.user_id !== reminder.recipient_id || gone.has(sub.id)) continue;
+      if (sub.user_id !== userId || gone.has(sub.id)) continue;
       try {
         const result = await sendWebPush(sub, payload, vapid, { urgency: "high" });
         if (result.ok) sent++;
@@ -86,5 +97,5 @@ Deno.serve(async (req) => {
   }
 
   if (gone.size > 0) await db.from("push_subscriptions").delete().in("id", [...gone]);
-  return Response.json({ claimed: due.length, sent, failed, removed: gone.size });
+  return Response.json({ claimed: due.length, digests: digests.length, sent, failed, removed: gone.size });
 });

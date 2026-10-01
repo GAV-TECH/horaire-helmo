@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNotification, formatRelative, formatWhen, type DueReminder } from "./message";
+import { buildDigest, buildNotification, formatRelative, formatWhen, type DigestRow, type DueReminder } from "./message";
 
 const NOW = new Date("2025-10-06T06:00:00Z"); // lundi 6 octobre, 08:00 à Bruxelles
 
@@ -27,6 +27,36 @@ describe("formatage", () => {
     expect(formatRelative(new Date("2025-10-06T08:00:00Z"), NOW)).toBe("dans 2 h");
     expect(formatRelative(new Date("2025-10-09T06:00:00Z"), NOW)).toBe("dans 3 jours");
     expect(formatRelative(new Date("2025-10-06T05:00:00Z"), NOW)).toBe("maintenant");
+  });
+});
+
+describe("buildDigest", () => {
+  const evening = new Date("2025-10-06T18:00:00Z"); // lundi 6 octobre, 20:00 à Bruxelles
+  const row = (over: Partial<DigestRow> = {}): DigestRow => ({
+    user_id: "u", done_today: 5, left_today: 2, tomorrow_tasks: 3, tomorrow_deadlines: 1, tomorrow_sessions: 4,
+    tomorrow_first: "2025-10-07T06:15:00Z", next_eval_title: "Thermodynamique - évaluation / X / 413 (CO)", next_eval_at: "2025-10-09T07:00:00Z",
+    ...over,
+  });
+
+  it("résume la journée et prépare demain", () => {
+    expect(buildDigest(row(), evening)).toEqual({
+      title: "Débrief de ta journée",
+      body: [
+        "✓ 5 tâches faites aujourd'hui",
+        "2 encore à faire",
+        "Demain : 4 cours dès 08:15",
+        "Pour demain : 3 tâches et 1 échéance",
+        "Évaluation de Thermodynamique dans 3 jours",
+      ].join("\n"),
+      url: "/taches",
+      tag: "debrief",
+    });
+  });
+
+  it("reste lisible les jours calmes", () => {
+    const body = buildDigest(row({ done_today: 0, left_today: 0, tomorrow_tasks: 0, tomorrow_deadlines: 0, tomorrow_sessions: 0, tomorrow_first: null, next_eval_title: null, next_eval_at: null }), evening).body;
+    expect(body).toBe("Aucune tâche cochée aujourd'hui\nDemain : pas de cours");
+    expect(buildDigest(row({ done_today: 1, tomorrow_sessions: 1 }), evening).body).toContain("✓ 1 tâche faite aujourd'hui\n2 encore à faire\nDemain : 1 cours dès 08:15");
   });
 });
 

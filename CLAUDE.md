@@ -51,6 +51,10 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 
 - [x] Projets (`/projets`, `src/components/projects/`) : liste de tâches `scope = 'project'` (migration 0005), avancement et prochaine échéance (`src/lib/projects.ts`), actions partagées avec la page Tâches via `useTaskMutations`. Notes de séance **supprimées** (table `notes` droppée en 0005). Compte à rebours et importance sans couleur d'urgence (choix utilisateur) ; les couleurs PAR COURS restent.
 
+- [x] Page Semaine supprimée. Ma journée automatique (ajoutées aujourd'hui + échéance aujourd'hui/demain, `jourSection`), tâches en retard (échéance AVANT aujourd'hui, `isOverdue`) séparées dans toutes les vues.
+- [x] Changements d'horaire : `added` / `moved` / `room` / `cancelled` (STATUS:CANCELLED) / `removed` (disparue du flux) ; déplacement reconnu malgré un nouvel UID (même cours + type, ≤ 30 j, `closestMoveCandidate`) ; légende `src/lib/sessions/changes.ts`.
+- [x] Débrief quotidien (migration 0006 : `user_settings`, `claim_daily_digests()` à l'heure de Bruxelles, une fois par jour) envoyé par l'Edge Function `send-reminders` (`buildDigest`) ; réglage dans Rappels.
+
 ## Pistes suivantes
 
 - Déploiement Vercel (push sur téléphone, accès pour les camarades) + mettre à jour Site URL / Redirect URLs dans Supabase.

@@ -127,6 +127,15 @@ SQL Editor → *New query* → colle [`supabase/migrations/0004_taches_perso.sql
 
 SQL Editor → *New query* → colle [`supabase/migrations/0005_projets.sql`](supabase/migrations/0005_projets.sql) → **Run**. Ce script autorise les listes de type « projet » et **supprime la table des notes de séance, avec son contenu**.
 
+## 9. Débrief quotidien (à faire une fois)
+
+1. SQL Editor → *New query* → colle [`supabase/migrations/0006_debrief.sql`](supabase/migrations/0006_debrief.sql) → **Run**.
+2. Redéploie la fonction d'envoi (elle envoie maintenant aussi le débrief) :
+   ```powershell
+   npx supabase functions deploy send-reminders --project-ref mlxgvpghjhqzfqsuekuw --no-verify-jwt --use-api
+   ```
+3. Dans l'app : **Rappels** → *Débrief quotidien* → activé, heure au choix (20 h par défaut).
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire

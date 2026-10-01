@@ -68,6 +68,47 @@ export function formatRelative(target: Date, now: Date) {
   return `dans ${days} jour${days > 1 ? "s" : ""}`;
 }
 
+/** Bilan du jour renvoyé par claim_daily_digests() (une ligne par étudiant). */
+export type DigestRow = {
+  user_id: string;
+  done_today: number;
+  left_today: number;
+  tomorrow_tasks: number;
+  tomorrow_deadlines: number;
+  tomorrow_sessions: number;
+  tomorrow_first: string | null;
+  next_eval_title: string | null;
+  next_eval_at: string | null;
+};
+
+const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? "s" : ""}`;
+
+/** "Thermodynamique - évaluation / KELNER / 413 (CO)" → "Thermodynamique". */
+function courseOf(title: string) {
+  return title.split(/\s+\/\s+/)[0].replace(/\s*(?::|\s-\s)\s*[ée]valuation\s*$/i, "").trim();
+}
+
+/** Débrief du soir : ce qui a été fait, ce qui reste, et ce qui attend demain. */
+export function buildDigest(d: DigestRow, now: Date): NotificationPayload {
+  const lines: string[] = [];
+  lines.push(d.done_today > 0 ? `✓ ${plural(d.done_today, "tâche")} faite${d.done_today > 1 ? "s" : ""} aujourd'hui` : "Aucune tâche cochée aujourd'hui");
+  if (d.left_today > 0) lines.push(`${d.left_today} encore à faire`);
+  lines.push(
+    d.tomorrow_sessions > 0 && d.tomorrow_first
+      ? `Demain : ${d.tomorrow_sessions} cours dès ${formatTime(new Date(d.tomorrow_first))}` // "cours" est invariable
+      : "Demain : pas de cours",
+  );
+  const forTomorrow = [
+    d.tomorrow_tasks > 0 ? plural(d.tomorrow_tasks, "tâche") : null,
+    d.tomorrow_deadlines > 0 ? plural(d.tomorrow_deadlines, "échéance") : null,
+  ].filter(Boolean);
+  if (forTomorrow.length) lines.push(`Pour demain : ${forTomorrow.join(" et ")}`);
+  if (d.next_eval_title && d.next_eval_at) {
+    lines.push(`Évaluation de ${courseOf(d.next_eval_title)} ${formatRelative(new Date(d.next_eval_at), now)}`);
+  }
+  return { title: "Débrief de ta journée", body: lines.join("\n"), url: "/taches", tag: "debrief" };
+}
+
 /** Construit la notification, ou null s'il ne faut rien envoyer (cible faite/annulée, rappel trop ancien). */
 export function buildNotification(r: DueReminder, now: Date): NotificationPayload | null {
   if (r.target_done || r.target_title === null) return null;
