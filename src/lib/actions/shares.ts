@@ -15,13 +15,13 @@ import { actionContext, dbFail, fail, ok, type ActionResult } from "./context";
 /** Les partages sont chargés par le layout (bandeau des demandes) : on l'invalide. */
 const revalidateShares = () => revalidatePath("/", "layout");
 
-const querySchema = z.string().trim().min(3).max(60);
+const querySchema = z.string().trim().min(2).max(60);
 
-/** Recherche d'étudiants par nom ou début d'adresse (3 caractères minimum). */
+/** Recherche d'étudiants par nom ou début d'adresse (2 caractères minimum). */
 export async function searchStudents(q: string): Promise<{ ok: true; students: StudentHit[] } | { ok: false; error: string }> {
   const { supabase } = await actionContext();
   const parsed = querySchema.safeParse(q);
-  if (!parsed.success) return { ok: false, error: "Tape au moins 3 lettres du nom." };
+  if (!parsed.success) return { ok: false, error: "Tape au moins 2 lettres du nom." };
   const { data, error } = await supabase.rpc("find_students", { q: parsed.data });
   if (error) {
     console.error("[action:searchStudents]", error);

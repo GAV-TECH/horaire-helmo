@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { ActionResult } from "@/lib/actions/context";
 import { removeTaskShare, requestTaskShare, searchStudents } from "@/lib/actions/shares";
 import type { StudentHit } from "@/lib/data/types";
@@ -8,7 +8,7 @@ import { useGroups } from "@/components/groups/GroupsContext";
 import { buttonClass, inputClass } from "@/components/styles";
 
 /**
- * Partager avec un étudiant : on tape son nom, on choisit dans les résultats, une demande
+ * Partager avec un étudiant : on tape son nom, des suggestions apparaissent, on en choisit une ; une demande
  * part ; le partage commence quand il l'accepte. listId null = toutes mes tâches.
  * Affiche aussi avec qui c'est déjà partagé (ou en attente), avec un bouton pour retirer.
  */
@@ -20,14 +20,26 @@ export function StudentShare({ listId }: { listId: string | null }) {
   const [pending, startTransition] = useTransition();
   const outgoing = shares.filter((s) => s.ownerId === me && s.listId === listId);
 
-  const search = (e: React.FormEvent) => {
-    e.preventDefault();
-    startTransition(async () => {
-      const r = await searchStudents(query);
+  // Suggestions pendant la frappe : on attend 300 ms après la dernière touche, et on ignore
+  // une réponse arrivée après une frappe plus récente (latest).
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const latest = useRef("");
+  const search = (text: string) => {
+    latest.current = text;
+    clearTimeout(timer.current);
+    if (text.trim().length < 2) {
+      setHits(null);
+      return;
+    }
+    timer.current = setTimeout(async () => {
+      const r = await searchStudents(text);
+      if (latest.current !== text) return;
       setMessage(r.ok ? null : { ok: false, error: r.error });
       setHits(r.ok ? r.students : null);
-    });
+    }, 300);
   };
+  useEffect(() => () => clearTimeout(timer.current), []);
+
   const run = (fn: () => Promise<ActionResult>, after?: () => void) =>
     startTransition(async () => {
       const r = await fn();
@@ -37,21 +49,20 @@ export function StudentShare({ listId }: { listId: string | null }) {
 
   return (
     <div className="flex flex-col gap-2 text-sm">
-      <form onSubmit={search} className="flex gap-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          maxLength={60}
-          placeholder="Nom de l'étudiant"
-          aria-label="Nom de l'étudiant"
-          className={inputClass}
-        />
-        <button type="submit" disabled={pending || query.trim().length < 3} className={buttonClass.secondary}>
-          Chercher
-        </button>
-      </form>
+      <input
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          search(e.target.value);
+        }}
+        maxLength={60}
+        placeholder="Nom de l'étudiant (2 lettres minimum)"
+        aria-label="Nom de l'étudiant"
+        autoComplete="off"
+        className={inputClass}
+      />
 
-      {hits && hits.length === 0 && <p className="text-xs text-zinc-500">Personne trouvé. L&apos;étudiant doit avoir un compte sur l&apos;app.</p>}
+      {hits && hits.length === 0 && <p className="text-xs text-zinc-500">Aucun étudiant trouvé. Il doit avoir un compte sur l&apos;app.</p>}
       {hits && hits.length > 0 && (
         <ul className="flex flex-col gap-1">
           {hits.map((h) => {
@@ -64,7 +75,14 @@ export function StudentShare({ listId }: { listId: string | null }) {
                 <button
                   type="button"
                   disabled={pending || already}
-                  onClick={() => run(() => requestTaskShare(h.id, listId ?? ""), () => setHits(null))}
+                  onClick={() =>
+                    run(
+                      () => requestTaskShare(h.id, listId ?? ""),
+                      () => {
+                        setHits(null);
+                        setQuery("");
+                      },
+                    )}
                   className={buttonClass.primary}
                 >
                   {already ? "Déjà invité" : "Inviter"}

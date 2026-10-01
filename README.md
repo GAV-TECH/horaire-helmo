@@ -152,7 +152,7 @@ SQL Editor → *New query* → colle [`supabase/migrations/0007_partage_taches.s
 Un projet est une liste de tâches d'un type particulier (`scope = 'project'`) : chaque tâche peut avoir une échéance (jalon), des rappels, et le projet peut être partagé avec un groupe (chacun coche pour soi). L'onglet **Projets** montre l'avancement et la prochaine échéance de chaque projet. Les anciennes notes de séance ont été retirées (migration 0005).
 
 ### Partage des tâches
-- **Avec un étudiant** : on tape son nom (recherche `find_students` : 3 lettres minimum, 6 résultats, adresse e-mail masquée), il reçoit une demande (bandeau en haut de l'app) et l'**accepte** ou la refuse. Une liste précise (menu **⋯**) ou toutes ses tâches (vue **Toutes** ; séances comprises, listes créées ensuite aussi, pas les projets).
+- **Avec un étudiant** : on tape son nom (suggestions pendant la frappe, `find_students` : 2 lettres minimum, 6 résultats, adresse e-mail masquée), il reçoit une demande (bandeau en haut de l'app) et l'**accepte** ou la refuse. Une liste précise (menu **⋯**) ou toutes ses tâches (vue **Toutes** ; séances comprises, listes créées ensuite aussi, pas les projets).
 - Une fois accepté : les deux voient les mêmes tâches **en temps réel** et peuvent les **modifier** (titre, échéance) ou en ajouter. **Cocher reste personnel** : si l'un valide une tâche, elle n'est validée que pour lui (`todo_completions`). Seuls l'auteur et le propriétaire peuvent supprimer une tâche.
 - Chacun peut arrêter : le propriétaire (« Arrêter ») ou le destinataire (« Quitter »).
 - **Avec un groupe** : toujours possible depuis le menu **⋯** d'une liste.

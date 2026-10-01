@@ -94,8 +94,9 @@ as $$
   );
 $$;
 
--- Recherche d'un étudiant par nom (ou début d'adresse e-mail) : 3 caractères minimum,
--- 6 résultats maximum, l'adresse est masquée (« gi…@gmail.com ») pour distinguer
+-- Recherche d'un étudiant par nom (ou début d'adresse e-mail) : 2 caractères minimum
+-- (certains noms sont très courts), 6 résultats maximum — nom exact d'abord, puis
+-- ceux qui commencent par la recherche, puis ceux qui la contiennent —, l'adresse est masquée (« gi…@gmail.com ») pour distinguer
 -- deux homonymes sans exposer les adresses.
 create or replace function public.find_students(q text)
 returns table (id uuid, display_name text, email_hint text)
@@ -110,7 +111,7 @@ declare
   pattern text;
 begin
   if me is null then raise exception 'Non connecté.'; end if;
-  if char_length(needle) < 3 then return; end if;
+  if char_length(needle) < 2 then return; end if;
   pattern := replace(replace(replace(left(needle, 60), '\', '\\'), '%', '\%'), '_', '\_');
   return query
     select p.id, p.display_name,
@@ -119,7 +120,9 @@ begin
       join auth.users u on u.id = p.id
      where p.id <> me
        and (p.display_name ilike '%' || pattern || '%' or u.email ilike pattern || '%')
-     order by p.display_name
+     order by (lower(p.display_name) = lower(needle)) desc,
+              (p.display_name ilike pattern || '%') desc,
+              p.display_name
      limit 6;
 end;
 $$;
