@@ -1,6 +1,6 @@
 "use server";
 
-import { refresh } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { z } from "zod";
 import { firstError, idSchema, todoItemSchema, todoListSchema } from "@/lib/validation";
 import { actionContext, dbFail, fail, ok, type ActionResult } from "./context";
@@ -115,4 +115,29 @@ export async function setListGroup(listId: string, groupId: string): Promise<Act
   if (!data?.length) return fail("Seul le propriétaire peut changer le partage (et une liste de séance reste privée).");
   refresh();
   return ok(groupId ? "Liste partagée." : "Liste redevenue privée.");
+}
+
+const shareNameSchema = z.string().trim().min(1, "Le nom est obligatoire.").max(80, "80 caractères maximum.");
+
+/**
+ * "Partager avec un étudiant" : crée un petit groupe pour cette liste et y range la liste.
+ * On réutilise les groupes (droits RLS, temps réel, lien d'invitation) plutôt qu'un 2e système
+ * de partage. Renvoie l'id du groupe : son lien d'invitation est ensuite affiché dans le menu.
+ */
+export async function shareListWithNewGroup(listId: string, name: string): Promise<ActionResult> {
+  const { user, supabase } = await actionContext();
+  if (!idSchema.safeParse(listId).success) return fail("Liste invalide.");
+  const parsed = shareNameSchema.safeParse(name);
+  if (!parsed.success) return fail(firstError(parsed.error));
+  // Vérifié AVANT de créer le groupe, pour ne pas laisser un groupe vide en cas de refus.
+  const { data: own, error: ownError } = await supabase.from("todo_lists").select("id").eq("id", listId).eq("user_id", user.id).neq("scope", "session").maybeSingle();
+  if (ownError) return dbFail(ownError, "shareListWithNewGroup");
+  if (!own) return fail("Seul le propriétaire peut partager cette liste (une liste de séance reste privée).");
+
+  const { data: groupId, error } = await supabase.rpc("create_group", { group_name: parsed.data });
+  if (error) return dbFail(error, "shareListWithNewGroup:create_group");
+  const { error: linkError } = await supabase.from("todo_lists").update({ group_id: groupId }).eq("id", listId).eq("user_id", user.id);
+  if (linkError) return dbFail(linkError, "shareListWithNewGroup");
+  revalidatePath("/", "layout"); // la liste des groupes (et leurs codes) est chargée par le layout
+  return { ok: true, message: "Liste partagée : envoie le lien d'invitation à l'étudiant.", id: groupId as string };
 }

@@ -53,6 +53,7 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 
 - [x] Page Semaine supprimée. Ma journée automatique (ajoutées aujourd'hui + échéance aujourd'hui/demain, `jourSection`), tâches en retard (échéance AVANT aujourd'hui, `isOverdue`) séparées dans toutes les vues.
 - [x] Changements d'horaire : `added` / `moved` / `room` / `cancelled` (STATUS:CANCELLED) / `removed` (disparue du flux) ; déplacement reconnu malgré un nouvel UID (même cours + type, ≤ 30 j, `closestMoveCandidate`) ; légende `src/lib/sessions/changes.ts`.
+- [x] Tâches regroupées par jour d'échéance (`groupTasksByDay`, `dayLabel`) dans les listes, Planifié, Toutes, Important et les projets. Ma journée = aujourd'hui + le PROCHAIN jour qui a des tâches non faites (`nextTaskDay` : demain, sinon le jour d'après…). « Partager avec un étudiant » (menu ⋯ d'une liste) : `shareListWithNewGroup` crée un groupe pour la liste et affiche son lien d'invitation (pas de 2e système de partage).
 - [x] Débrief quotidien (migration 0006 : `user_settings`, `claim_daily_digests()` à l'heure de Bruxelles, une fois par jour) envoyé par l'Edge Function `send-reminders` (`buildDigest`) ; réglage dans Rappels.
 
 ## Pistes suivantes

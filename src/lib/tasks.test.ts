@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TodoItem, TodoList } from "./data/types";
-import { flattenTasks, isOverdue, jourSection, plannedGroup, quickDueDates, sortTasks, splitOverdue, tasksForView } from "./tasks";
+import { dayLabel, flattenTasks, groupTasksByDay, isOverdue, jourSection, nextTaskDay, quickDueDates, sortTasks, splitOverdue, tasksForView } from "./tasks";
 
 const item = (id: string, over: Partial<TodoItem> = {}): TodoItem => ({
   id, listId: "l", authorId: "me", title: id, dueAt: null, position: 0, done: false, doneBy: [], important: false, myDay: null, ...over,
@@ -21,8 +21,12 @@ const entries = flattenTasks(lists);
 const ids = (v: string) => tasksForView(entries, v, "2025-10-06").map((e) => e.item.id);
 
 describe("vues de la page Tâches", () => {
-  it("Ma journée : ajoutées aujourd'hui (pas hier) + échéance aujourd'hui ou demain, automatiquement", () => {
-    expect(ids("jour")).toEqual(["a", "d"]); // d : échéance le 7 = demain
+  it("Ma journée : ajoutées aujourd'hui (pas hier) + échéance du prochain jour qui a des tâches", () => {
+    expect(ids("jour")).toEqual(["a", "d"]); // d : échéance le 7 = demain ; c (le 8) attend son tour
+  });
+  it("Ma journée : rien demain → les tâches du jour d'après", () => {
+    const sansDemain = flattenTasks([list("perso", [item("c", { dueAt: "2025-10-08T21:59:00.000Z" }), item("z", { dueAt: "2025-10-20T10:00:00.000Z" })])]);
+    expect(tasksForView(sansDemain, "jour", "2025-10-06").map((e) => e.item.id)).toEqual(["c"]);
   });
   it("Important, Planifié, Toutes, Séances, et une liste précise", () => {
     expect(ids("important")).toEqual(["a"]);
@@ -40,13 +44,20 @@ describe("Ma journée et retard", () => {
   const today = "2025-10-06";
   const e = (over: Partial<TodoItem>) => ({ item: item("x", over), list: list("l", []) });
 
-  it("range chaque tâche : en retard, aujourd'hui, demain, ou absente", () => {
-    expect(jourSection(e({ dueAt: "2025-10-04T10:00:00.000Z" }), today)).toBe("retard");
-    expect(jourSection(e({ dueAt: "2025-10-06T06:00:00.000Z" }), today)).toBe("aujourdhui"); // ce matin : pas "en retard"
-    expect(jourSection(e({ myDay: today }), today)).toBe("aujourdhui");
-    expect(jourSection(e({ dueAt: "2025-10-07T10:00:00.000Z" }), today)).toBe("demain");
-    expect(jourSection(e({ dueAt: "2025-10-09T10:00:00.000Z" }), today)).toBeNull();
-    expect(jourSection(e({ myDay: "2025-10-05" }), today)).toBeNull(); // ajoutée hier : retirée automatiquement
+  it("range chaque tâche : en retard, aujourd'hui, prochain jour, ou absente", () => {
+    const next = "2025-10-07";
+    expect(jourSection(e({ dueAt: "2025-10-04T10:00:00.000Z" }), today, next)).toBe("retard");
+    expect(jourSection(e({ dueAt: "2025-10-06T06:00:00.000Z" }), today, next)).toBe("aujourdhui"); // ce matin : pas "en retard"
+    expect(jourSection(e({ myDay: today }), today, next)).toBe("aujourdhui");
+    expect(jourSection(e({ dueAt: "2025-10-07T10:00:00.000Z" }), today, next)).toBe("prochain");
+    expect(jourSection(e({ dueAt: "2025-10-09T10:00:00.000Z" }), today, next)).toBeNull();
+    expect(jourSection(e({ myDay: "2025-10-05" }), today, next)).toBeNull(); // ajoutée hier : retirée automatiquement
+  });
+
+  it("prochain jour : le premier jour après aujourd'hui avec une tâche NON faite", () => {
+    expect(nextTaskDay([e({ dueAt: "2025-10-09T10:00:00.000Z" }), e({ dueAt: "2025-10-12T10:00:00.000Z" })], today)).toBe("2025-10-09");
+    expect(nextTaskDay([e({ dueAt: "2025-10-07T10:00:00.000Z", done: true }), e({ dueAt: "2025-10-12T10:00:00.000Z" })], today)).toBe("2025-10-12");
+    expect(nextTaskDay([e({ dueAt: "2025-10-06T10:00:00.000Z" }), e({})], today)).toBeNull(); // aujourd'hui ou sans date : pas "prochain"
   });
 
   it("une tâche faite n'est jamais en retard", () => {
@@ -63,15 +74,27 @@ describe("Ma journée et retard", () => {
   });
 });
 
-describe("Planifié", () => {
-  const now = Date.parse("2025-10-06T10:00:00Z"); // lundi 6 octobre, 12:00 à Bruxelles
-  it("classe les échéances selon les jours de Bruxelles", () => {
-    expect(plannedGroup("2025-10-05T08:00:00Z", now)).toBe("retard"); // hier
-    expect(plannedGroup("2025-10-06T08:00:00Z", now)).toBe("aujourdhui"); // ce matin : pas encore "en retard"
-    expect(plannedGroup("2025-10-06T21:59:00Z", now)).toBe("aujourdhui");
-    expect(plannedGroup("2025-10-06T22:30:00Z", now)).toBe("demain"); // 00:30 le 7 à Bruxelles
-    expect(plannedGroup("2025-10-12T10:00:00Z", now)).toBe("semaine");
-    expect(plannedGroup("2025-10-20T10:00:00Z", now)).toBe("plus-tard");
+describe("regroupement par jour", () => {
+  const today = "2025-10-06"; // lundi
+  const e = (id: string, dueAt: string | null) => ({ item: item(id, { dueAt }), list: list("l", []) });
+
+  it("nomme les jours : aujourd'hui, demain, puis la date (année si différente)", () => {
+    expect(dayLabel("2025-10-06", today)).toBe("Aujourd'hui");
+    expect(dayLabel("2025-10-07", today)).toBe("Demain");
+    expect(dayLabel("2025-10-09", today)).toBe("Jeudi 9 octobre");
+    expect(dayLabel("2026-01-05", today)).toBe("Lundi 5 janvier 2026");
+  });
+
+  it("une section par jour (jours de Bruxelles, dans l'ordre), sans échéance à la fin", () => {
+    const sections = groupTasksByDay(
+      sortTasks([e("sans", null), e("jeudi", "2025-10-09T10:00:00Z"), e("nuit", "2025-10-06T22:30:00Z"), e("demain", "2025-10-07T08:00:00Z")]),
+      today,
+    );
+    expect(sections.map((s) => [s.label, s.items.map((x) => x.item.id)])).toEqual([
+      ["Demain", ["nuit", "demain"]], // 00:30 le 7 à Bruxelles
+      ["Jeudi 9 octobre", ["jeudi"]],
+      ["Sans échéance", ["sans"]],
+    ]);
   });
 });
 

@@ -1,6 +1,6 @@
-import { shiftDay } from "@/lib/calendar";
+import { fromDayKey, shiftDay } from "@/lib/calendar";
 import type { TodoItem, TodoList } from "@/lib/data/types";
-import { dayKey } from "@/lib/time";
+import { dayKey, formatFr } from "@/lib/time";
 
 /** Listes "intelligentes" de la page Tâches (façon Microsoft To Do). */
 export const SMART_VIEWS = [
@@ -26,10 +26,12 @@ export function flattenTasks(lists: TodoList[]): TaskEntry[] {
 /** Les tâches d'une vue : liste intelligente ou liste précise. `today` = "AAAA-MM-JJ" à Bruxelles. */
 export function tasksForView(entries: TaskEntry[], view: string, today: string): TaskEntry[] {
   switch (view) {
-    case "jour":
+    case "jour": {
       // Ma journée = ajoutées à la main aujourd'hui (hier = n'y sont plus, automatiquement)
-      // + automatiquement : échéance aujourd'hui ou DEMAIN, et les tâches en retard non faites.
-      return entries.filter((e) => jourSection(e, today) !== null);
+      // + automatiquement : échéance aujourd'hui, celles du PROCHAIN jour qui a des tâches, et les retards.
+      const next = nextTaskDay(entries, today);
+      return entries.filter((e) => jourSection(e, today, next) !== null);
+    }
     case "important":
       return entries.filter((e) => e.item.important);
     case "planifie":
@@ -52,14 +54,27 @@ export function isOverdue(e: TaskEntry, today: string): boolean {
   return !e.item.done && day !== null && day < today;
 }
 
-export type JourSection = "retard" | "aujourdhui" | "demain";
+/**
+ * Prochain jour APRÈS aujourd'hui où une tâche non faite arrive à échéance : demain s'il y a
+ * quelque chose demain, sinon le jour d'après, etc. null s'il n'y a plus rien de prévu.
+ */
+export function nextTaskDay(entries: TaskEntry[], today: string): string | null {
+  let next: string | null = null;
+  for (const e of entries) {
+    const day = dueDay(e);
+    if (!e.item.done && day !== null && day > today && (next === null || day < next)) next = day;
+  }
+  return next;
+}
 
-/** Place d'une tâche dans "Ma journée", ou null si elle n'y figure pas. */
-export function jourSection(e: TaskEntry, today: string): JourSection | null {
+export type JourSection = "retard" | "aujourdhui" | "prochain";
+
+/** Place d'une tâche dans "Ma journée" (`next` = nextTaskDay), ou null si elle n'y figure pas. */
+export function jourSection(e: TaskEntry, today: string, next: string | null): JourSection | null {
   if (isOverdue(e, today)) return "retard";
   const day = dueDay(e);
   if (e.item.myDay === today || day === today) return "aujourdhui";
-  if (day === shiftDay(today, 1)) return "demain";
+  if (day !== null && day === next) return "prochain";
   return null;
 }
 
@@ -83,25 +98,33 @@ export function sortTasks(entries: TaskEntry[]): TaskEntry[] {
   });
 }
 
-export type PlannedGroup = "retard" | "aujourdhui" | "demain" | "semaine" | "plus-tard";
+/** "Aujourd'hui", "Demain", sinon "Jeudi 9 octobre" (avec l'année si ce n'est pas celle d'aujourd'hui). */
+export function dayLabel(day: string, today: string): string {
+  if (day === today) return "Aujourd'hui";
+  if (day === shiftDay(today, 1)) return "Demain";
+  const label = formatFr(fromDayKey(day), day.slice(0, 4) === today.slice(0, 4) ? "EEEE d MMMM" : "EEEE d MMMM yyyy");
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
 
-export const PLANNED_LABELS: Record<PlannedGroup, string> = {
-  retard: "En retard",
-  aujourdhui: "Aujourd'hui",
-  demain: "Demain",
-  semaine: "Dans les 7 jours",
-  "plus-tard": "Plus tard",
-};
+export type DaySection = { key: string; label: string; items: TaskEntry[] };
 
-/** Groupe d'une échéance dans la vue "Planifié" (jours comptés à Bruxelles). */
-export function plannedGroup(dueAt: string, now: number): PlannedGroup {
-  const today = dayKey(now);
-  const day = dayKey(dueAt);
-  if (day < today) return "retard"; // même règle que isOverdue : plus tôt aujourd'hui = "aujourd'hui"
-  if (day === today) return "aujourdhui";
-  if (day === shiftDay(today, 1)) return "demain";
-  if (day <= shiftDay(today, 7)) return "semaine";
-  return "plus-tard";
+/**
+ * Regroupe des tâches par jour d'échéance (dans l'ordre des jours), puis "Sans échéance" à la fin.
+ * L'ordre des tâches est conservé dans chaque jour : trier avant (sortTasks).
+ */
+export function groupTasksByDay(entries: TaskEntry[], today: string): DaySection[] {
+  const byDay = new Map<string, TaskEntry[]>();
+  const undated: TaskEntry[] = [];
+  for (const e of entries) {
+    const day = dueDay(e);
+    if (day === null) undated.push(e);
+    else byDay.set(day, [...(byDay.get(day) ?? []), e]);
+  }
+  const sections = [...byDay.keys()]
+    .sort()
+    .map((day) => ({ key: day, label: dayLabel(day, today), items: byDay.get(day)! }));
+  if (undated.length) sections.push({ key: "sans-date", label: "Sans échéance", items: undated });
+  return sections;
 }
 
 /** Dates proposées en un clic pour l'échéance : aujourd'hui, demain, lundi prochain. */

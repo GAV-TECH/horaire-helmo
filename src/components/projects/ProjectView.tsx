@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { TodoList } from "@/lib/data/types";
 import { projectProgress } from "@/lib/projects";
-import { flattenTasks, sortTasks, splitOverdue } from "@/lib/tasks";
+import { flattenTasks, groupTasksByDay, sortTasks, splitOverdue } from "@/lib/tasks";
 import { dayKey } from "@/lib/time";
 import { SharedBadge } from "@/components/groups/share";
 import { useGroups } from "@/components/groups/GroupsContext";
@@ -111,10 +111,16 @@ export function ProjectView({ project: serverProject, now }: { project: TodoList
           <>
             <h2 className="pb-1.5 pt-1 text-sm font-semibold text-red-600 dark:text-red-400">En retard · {overdue.length}</h2>
             <ul className="mb-3 flex flex-col gap-1.5">{overdue.map(row)}</ul>
-            <h2 className="pb-1.5 text-sm font-semibold text-zinc-500">À faire · {rest.length}</h2>
           </>
         )}
-        <ul className="flex flex-col gap-1.5">{rest.map(row)}</ul>
+        {groupTasksByDay(rest, today).map((s) => (
+          <div key={s.key} className="mb-3">
+            <h2 className="pb-1.5 text-sm font-semibold text-zinc-500">
+              {s.label} · {s.items.length}
+            </h2>
+            <ul className="flex flex-col gap-1.5">{s.items.map(row)}</ul>
+          </div>
+        ))}
 
         {done.length > 0 && (
           <div className="pt-3">
