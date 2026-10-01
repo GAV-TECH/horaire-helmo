@@ -27,7 +27,9 @@ export function flattenTasks(lists: TodoList[]): TaskEntry[] {
 export function tasksForView(entries: TaskEntry[], view: string, today: string): TaskEntry[] {
   switch (view) {
     case "jour":
-      return entries.filter((e) => e.item.myDay === today); // hier = n'y est plus, automatiquement
+      // Ma journée = ajoutées à la main aujourd'hui (hier = n'y sont plus, automatiquement)
+      // + automatiquement : échéance aujourd'hui ou DEMAIN, et les tâches en retard non faites.
+      return entries.filter((e) => jourSection(e, today) !== null);
     case "important":
       return entries.filter((e) => e.item.important);
     case "planifie":
@@ -39,6 +41,31 @@ export function tasksForView(entries: TaskEntry[], view: string, today: string):
     default:
       return entries.filter((e) => e.list.id === view);
   }
+}
+
+/** Jour (à Bruxelles) de l'échéance d'une tâche, ou null. */
+const dueDay = (e: TaskEntry) => (e.item.dueAt ? dayKey(e.item.dueAt) : null);
+
+/** Tâche en retard : non faite, échéance AVANT aujourd'hui (une échéance plus tôt aujourd'hui reste "aujourd'hui"). */
+export function isOverdue(e: TaskEntry, today: string): boolean {
+  const day = dueDay(e);
+  return !e.item.done && day !== null && day < today;
+}
+
+export type JourSection = "retard" | "aujourdhui" | "demain";
+
+/** Place d'une tâche dans "Ma journée", ou null si elle n'y figure pas. */
+export function jourSection(e: TaskEntry, today: string): JourSection | null {
+  if (isOverdue(e, today)) return "retard";
+  const day = dueDay(e);
+  if (e.item.myDay === today || day === today) return "aujourdhui";
+  if (day === shiftDay(today, 1)) return "demain";
+  return null;
+}
+
+/** Sépare les tâches en retard des autres (affichées dans une section à part, en haut). */
+export function splitOverdue(entries: TaskEntry[], today: string): { overdue: TaskEntry[]; rest: TaskEntry[] } {
+  return { overdue: entries.filter((e) => isOverdue(e, today)), rest: entries.filter((e) => !isOverdue(e, today)) };
 }
 
 /** Tri : échéance la plus proche d'abord (sans échéance à la fin), puis ordre d'ajout. */
@@ -68,9 +95,9 @@ export const PLANNED_LABELS: Record<PlannedGroup, string> = {
 
 /** Groupe d'une échéance dans la vue "Planifié" (jours comptés à Bruxelles). */
 export function plannedGroup(dueAt: string, now: number): PlannedGroup {
-  if (Date.parse(dueAt) < now) return "retard";
   const today = dayKey(now);
   const day = dayKey(dueAt);
+  if (day < today) return "retard"; // même règle que isOverdue : plus tôt aujourd'hui = "aujourd'hui"
   if (day === today) return "aujourdhui";
   if (day === shiftDay(today, 1)) return "demain";
   if (day <= shiftDay(today, 7)) return "semaine";

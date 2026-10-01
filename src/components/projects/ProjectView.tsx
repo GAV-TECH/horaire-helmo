@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { TodoList } from "@/lib/data/types";
 import { projectProgress } from "@/lib/projects";
-import { flattenTasks, sortTasks } from "@/lib/tasks";
+import { flattenTasks, sortTasks, splitOverdue } from "@/lib/tasks";
 import { dayKey } from "@/lib/time";
 import { SharedBadge } from "@/components/groups/share";
 import { useGroups } from "@/components/groups/GroupsContext";
@@ -27,6 +27,7 @@ export function ProjectView({ project: serverProject, now }: { project: TodoList
 
   const entries = flattenTasks(lists);
   const open = sortTasks(entries.filter((e) => !e.item.done));
+  const { overdue, rest } = splitOverdue(open, today); // en retard = échéance avant aujourd'hui
   const done = entries.filter((e) => e.item.done);
   const selected = entries.find((e) => e.item.id === selectedId) ?? null;
   const { done: doneCount, total, percent } = projectProgress(project);
@@ -106,7 +107,14 @@ export function ProjectView({ project: serverProject, now }: { project: TodoList
         )}
 
         {open.length === 0 && <p className="py-8 text-center text-sm text-zinc-500">{total === 0 ? "Aucune tâche : ajoute la première ci-dessus." : "Tout est fait ✓"}</p>}
-        <ul className="flex flex-col gap-1.5">{open.map(row)}</ul>
+        {overdue.length > 0 && (
+          <>
+            <h2 className="pb-1.5 pt-1 text-sm font-semibold text-red-600 dark:text-red-400">En retard · {overdue.length}</h2>
+            <ul className="mb-3 flex flex-col gap-1.5">{overdue.map(row)}</ul>
+            <h2 className="pb-1.5 text-sm font-semibold text-zinc-500">À faire · {rest.length}</h2>
+          </>
+        )}
+        <ul className="flex flex-col gap-1.5">{rest.map(row)}</ul>
 
         {done.length > 0 && (
           <div className="pt-3">

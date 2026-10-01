@@ -8,6 +8,8 @@ import {
   SMART_VIEWS,
   flattenTasks,
   isSmartView,
+  jourSection,
+  splitOverdue,
   plannedGroup,
   sortTasks,
   tasksForView,
@@ -85,30 +87,39 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
   const group = currentList?.groupId ? groups.find((g) => g.id === currentList.groupId) : null;
 
   // Regroupements de la liste centrale : par échéance (Planifié), par séance (Séances), sinon un seul bloc.
+  // Sections de la liste centrale. Dans TOUTES les vues, les tâches en retard (échéance avant
+  // aujourd'hui) sont séparées en haut ; le reste est regroupé selon la vue.
   const sections: { key: string; label?: string; tone?: string; items: TaskEntry[] }[] = (() => {
-    if (view === "planifie") {
-      const order: PlannedGroup[] = ["retard", "aujourdhui", "demain", "semaine", "plus-tard"];
-      return order
-        .map((g) => ({ key: g, label: PLANNED_LABELS[g], tone: g === "retard" ? "late" : undefined, items: open.filter((e) => plannedGroup(e.item.dueAt!, now) === g) }))
-        .filter((s) => s.items.length > 0);
-    }
-    if (view === "seances") {
+    const { overdue, rest } = splitOverdue(open, today);
+    const late = { key: "retard", label: "En retard", tone: "late", items: overdue };
+    let others: { key: string; label?: string; items: TaskEntry[] }[];
+    if (view === "jour") {
+      others = [
+        { key: "aujourdhui", label: "Aujourd'hui", items: rest.filter((e) => jourSection(e, today) === "aujourdhui") },
+        { key: "demain", label: "Pour demain", items: rest.filter((e) => jourSection(e, today) === "demain") },
+      ];
+    } else if (view === "planifie") {
+      const order: PlannedGroup[] = ["aujourdhui", "demain", "semaine", "plus-tard"];
+      others = order.map((g) => ({ key: g, label: PLANNED_LABELS[g], items: rest.filter((e) => plannedGroup(e.item.dueAt!, now) === g) }));
+    } else if (view === "seances") {
       const byList = new Map<string, TaskEntry[]>();
-      for (const e of open) byList.set(e.list.id, [...(byList.get(e.list.id) ?? []), e]);
-      return [...byList.values()]
+      for (const e of rest) byList.set(e.list.id, [...(byList.get(e.list.id) ?? []), e]);
+      others = [...byList.values()]
         .sort((a, b) => (a[0].list.sessionStart ?? "").localeCompare(b[0].list.sessionStart ?? ""))
         .map((items) => ({
           key: items[0].list.id,
           label: `${items[0].list.courseName ? parseCourseTitle(items[0].list.courseName).course : items[0].list.title}${items[0].list.sessionStart ? ` · ${formatSessionDate(items[0].list.sessionStart)}` : ""}`,
           items,
         }));
+    } else {
+      others = [{ key: "all", label: overdue.length ? "À faire" : undefined, items: rest }];
     }
-    return [{ key: "all", items: open }];
+    return [late, ...others].filter((s) => s.items.length > 0);
   })();
 
   const emptyText =
     view === "jour"
-      ? "Rien dans Ma journée. Ajoute une tâche ci-dessus, ou ouvre une tâche et choisis « Ajouter à Ma journée »."
+      ? "Rien pour aujourd'hui ni demain. Les tâches à échéance aujourd'hui ou demain apparaissent ici toutes seules ; tu peux aussi en ajouter ci-dessus."
       : view === "important"
         ? "Aucune tâche importante. Touche l'étoile d'une tâche pour la retrouver ici."
         : view === "planifie"
