@@ -21,11 +21,13 @@ import { formatSessionDate } from "@/components/items/format";
 import { useGroups } from "@/components/groups/GroupsContext";
 import { ListMenu } from "./ListHeader";
 import { NewListForm } from "./NewListForm";
+import { ShareAll } from "./ShareAll";
 import { TaskDetail } from "./TaskDetail";
 import { TaskRow } from "./TaskRow";
 import { useTaskMutations } from "./useTaskMutations";
 
-type Props = { lists: TodoList[]; courses: Course[]; now: number };
+/** shareAllGroupId : groupe avec lequel TOUTES mes tâches sont partagées (vue « Toutes »), ou null. */
+type Props = { lists: TodoList[]; courses: Course[]; now: number; shareAllGroupId: string | null };
 /** Sur téléphone, un seul écran à la fois. */
 type Screen = "lists" | "tasks" | "detail";
 
@@ -34,8 +36,8 @@ type Screen = "lists" | "tasks" | "detail";
  * Les clics (cocher, étoile, Ma journée, échéance) s'affichent immédiatement grâce à
  * useOptimistic, puis la server action enregistre et la page se recale sur le serveur.
  */
-export function TasksApp({ lists: serverLists, courses, now }: Props) {
-  const { groups } = useGroups();
+export function TasksApp({ lists: serverLists, courses, now, shareAllGroupId }: Props) {
+  const { groups, me } = useGroups();
   const today = dayKey(now);
   const { lists, error, toggleDone, toggleImportant, toggleMyDay, setDue, rename, remove: removeTask, add } = useTaskMutations(serverLists, today);
   const [view, setView] = useState<string>("jour");
@@ -80,8 +82,11 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
     add(title, view, currentList?.id);
   };
 
-  const privateLists = lists.filter((l) => l.groupId === null && l.scope !== "session" && l.scope !== "project");
-  const sharedLists = lists.filter((l) => l.groupId !== null && l.scope !== "project");
+  // « Mes listes » = les miennes (👥 si partagées) ; « Partagées avec moi » = celles des autres.
+  // Les listes de séance n'apparaissent que dans la vue Séances (il y en a une par séance).
+  const isPlainList = (l: TodoList) => l.scope !== "session" && l.scope !== "project";
+  const privateLists = lists.filter((l) => isPlainList(l) && l.ownerId === me);
+  const sharedLists = lists.filter((l) => isPlainList(l) && l.ownerId !== me);
   const projects = lists.filter((l) => l.scope === "project");
   const title = currentList?.title ?? smart?.name ?? "Tâches";
   const group = currentList?.groupId ? groups.find((g) => g.id === currentList.groupId) : null;
@@ -139,9 +144,9 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
         ))}
         {privateLists.length > 0 && <NavTitle>Mes listes</NavTitle>}
         {privateLists.map((l) => (
-          <NavItem key={l.id} active={view === l.id} onClick={() => openView(l.id)} icon={<ListDot list={l} />} label={l.title} count={openCount(l.id)} />
+          <NavItem key={l.id} active={view === l.id} onClick={() => openView(l.id)} icon={<ListDot list={l} />} label={l.title} count={openCount(l.id)} badge={l.groupId ? "👥" : undefined} />
         ))}
-        {sharedLists.length > 0 && <NavTitle>Partagées</NavTitle>}
+        {sharedLists.length > 0 && <NavTitle>Partagées avec moi</NavTitle>}
         {sharedLists.map((l) => (
           <NavItem key={l.id} active={view === l.id} onClick={() => openView(l.id)} icon={<ListDot list={l} />} label={l.title} count={openCount(l.id)} badge="👥" />
         ))}
@@ -153,6 +158,7 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
           {creatingList ? (
             <NewListForm
               courses={courses}
+              defaultGroupId={shareAllGroupId}
               onCreated={(id) => {
                 setCreatingList(false);
                 openView(id);
@@ -186,6 +192,7 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
           </p>
         </header>
 
+        {view === "toutes" && <ShareAll groupId={shareAllGroupId} />}
         {view !== "seances" && (
           <form onSubmit={addTask} className="mx-4 mb-2 flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-white px-3 focus-within:border-blue-500 md:mx-6 dark:border-zinc-800 dark:bg-zinc-900">
             <span aria-hidden className="text-xl leading-none text-blue-600 dark:text-blue-400">

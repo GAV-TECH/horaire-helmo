@@ -30,7 +30,7 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 
 - Dates : stockées et échangées en ISO **UTC**. Pour afficher ou découper en jours, passer par `src/lib/time.ts` (`formatFr`, `dayKey`, `toBrussels`, `brusselsToIso`), jamais par `Date#getHours()` ou `toLocale*` sans fuseau. Les dates venant de Postgres sont normalisées avec `toISOString()` dans les mappers (les comparaisons de chaînes en dépendent).
 - Jours manipulés comme clés `"AAAA-MM-JJ"` (`src/lib/calendar.ts`).
-- Séances : clé = UID (+ `#RECURRENCE-ID`). Référence d'une note ou d'une liste « séance » = `session_key` + `course_key` + `session_start` (secours si l'UID change). Les séances ne sont jamais supprimées par la synchro (futures disparues → `cancelled`).
+- Séances : clé = UID (+ `#RECURRENCE-ID`). Référence d'une note ou d'une liste « séance » = `session_key` + `course_key` + `session_start` (secours si l'UID change). Les séances ne sont jamais supprimées par la synchro (futures disparues → `removed`).
 - Secrets : lien `.ics` chiffré (`src/lib/crypto.ts`), jamais renvoyé au client ni loggé. Logs d'erreur réseau via `redactSecrets()`. Modules serveur : `import "server-only"`. Liens `.ics` limités à `ICS_ALLOWED_HOSTS` (anti-SSRF).
 - Toute nouvelle table : RLS activé + politiques avec `(select auth.uid())`. Tester les politiques (ex. avec PGlite, comme fait en phase 2).
 - Logique métier en fonctions pures testées (`*.test.ts` à côté). Tests uniquement avec `fixtures/exemple.ics` (fictif), **jamais** les vraies données de l'utilisateur. Vitest tourne avec `TZ=America/New_York`.
@@ -54,6 +54,7 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 - [x] Page Semaine supprimée. Ma journée automatique (ajoutées aujourd'hui + échéance aujourd'hui/demain, `jourSection`), tâches en retard (échéance AVANT aujourd'hui, `isOverdue`) séparées dans toutes les vues.
 - [x] Changements d'horaire : `added` / `moved` / `room` / `cancelled` (STATUS:CANCELLED) / `removed` (disparue du flux) ; déplacement reconnu malgré un nouvel UID (même cours + type, ≤ 30 j, `closestMoveCandidate`) ; légende `src/lib/sessions/changes.ts`.
 - [x] Tâches regroupées par jour d'échéance (`groupTasksByDay`, `dayLabel`) dans les listes, Planifié, Toutes, Important et les projets. Date d'une tâche = échéance, sinon début de sa séance (`taskDate`). Ma journée = aujourd'hui + le PROCHAIN jour qui a des tâches non faites (`nextTaskDay` : demain, sinon le jour d'après…). « Partager avec un étudiant » (menu ⋯ d'une liste) : `shareListWithNewGroup` crée un groupe pour la liste et affiche son lien d'invitation (pas de 2e système de partage).
+- [x] Partager TOUTES ses tâches (vue Toutes, `ShareAll`) : migration 0007 (`user_settings.tasks_group_id`, contrainte `todo_lists_shared_not_session` supprimée → listes de séance partageables). `tasksShareGroup` (`src/lib/data/task-sharing.ts`) donne le groupe par défaut des listes créées ensuite (`quickAddTask`, `addSessionTask`, formulaire Nouvelle liste). Nav : « Mes listes » = les miennes (👥 si partagées), « Partagées avec moi » = celles des autres.
 - [x] Débrief quotidien (migration 0006 : `user_settings`, `claim_daily_digests()` à l'heure de Bruxelles, une fois par jour) envoyé par l'Edge Function `send-reminders` (`buildDigest`) ; réglage dans Rappels.
 
 ## Pistes suivantes

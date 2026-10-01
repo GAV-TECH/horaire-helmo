@@ -92,7 +92,7 @@ export const todoListSchema = z
     course_key: l.scope === "global" || !l.courseName ? null : courseKey(l.courseName),
     session_key: l.scope === "session" ? l.sessionKey : null,
     session_start: l.scope === "session" ? l.sessionStart : null,
-    // Une liste liée à une séance reste privée (les UID de séances diffèrent d'un étudiant à l'autre).
+    // Liste de séance : privée à la création (addSessionTask applique le partage global éventuel).
     group_id: l.scope === "session" ? null : l.groupId,
   }));
 

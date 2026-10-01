@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { brusselsToIso, dayKey } from "@/lib/time";
+import { tasksShareGroup } from "@/lib/data/task-sharing";
 import { firstError, idSchema } from "@/lib/validation";
 import { actionContext, dbFail, fail, ok, type ActionResult } from "./context";
 
@@ -96,20 +97,15 @@ export async function quickAddTask(title: string, view: string, listId?: string)
 
   let targetList = parsed.data.listId || null;
   if (!targetList) {
-    const { data: existing } = await supabase
-      .from("todo_lists")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("scope", "global")
-      .is("group_id", null)
-      .eq("title", DEFAULT_LIST_TITLE)
-      .limit(1)
-      .maybeSingle();
+    // Si toutes mes tâches sont partagées, la liste par défaut est dans ce groupe.
+    const shareGroup = await tasksShareGroup(supabase, user.id);
+    const query = supabase.from("todo_lists").select("id").eq("user_id", user.id).eq("scope", "global").eq("title", DEFAULT_LIST_TITLE);
+    const { data: existing } = await (shareGroup ? query.eq("group_id", shareGroup) : query.is("group_id", null)).limit(1).maybeSingle();
     targetList = (existing?.id as string | undefined) ?? null;
     if (!targetList) {
       const { data, error } = await supabase
         .from("todo_lists")
-        .insert({ title: DEFAULT_LIST_TITLE, scope: "global" })
+        .insert({ title: DEFAULT_LIST_TITLE, scope: "global", group_id: shareGroup })
         .select("id")
         .single();
       if (error) return dbFail(error, "quickAddTask.list");

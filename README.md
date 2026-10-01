@@ -136,6 +136,10 @@ SQL Editor → *New query* → colle [`supabase/migrations/0005_projets.sql`](su
    ```
 3. Dans l'app : **Rappels** → *Débrief quotidien* → activé, heure au choix (20 h par défaut).
 
+## 10. Partager toutes ses tâches (à faire une fois)
+
+SQL Editor → *New query* → colle [`supabase/migrations/0007_partage_taches.sql`](supabase/migrations/0007_partage_taches.sql) → **Run**. Ce script autorise le partage des listes de séance et ajoute le réglage « toutes mes tâches partagées avec… ». Ensuite : **Tâches** → **Toutes** → *Partager toutes mes tâches*.
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire
@@ -146,6 +150,11 @@ SQL Editor → *New query* → colle [`supabase/migrations/0005_projets.sql`](su
 
 ### Projets
 Un projet est une liste de tâches d'un type particulier (`scope = 'project'`) : chaque tâche peut avoir une échéance (jalon), des rappels, et le projet peut être partagé avec un groupe (chacun coche pour soi). L'onglet **Projets** montre l'avancement et la prochaine échéance de chaque projet. Les anciennes notes de séance ont été retirées (migration 0005).
+
+### Partage des tâches
+- Une liste : menu **⋯** → *Partager avec un étudiant* (un petit groupe est créé, on envoie son lien) ou choix d'un groupe existant.
+- Tout d'un coup : vue **Toutes** → *Partager toutes mes tâches*. Toutes les listes, tâches de séance comprises, passent dans le groupe, et les listes créées ensuite aussi (`user_settings.tasks_group_id`). Les projets gardent leur propre partage.
+- Choix : on réutilise les **groupes** (RLS, temps réel, lien d'invitation) plutôt qu'un second système de partage. Chacun coche les tâches pour soi.
 
 ### Rappels et notifications
 - Un rappel vise une séance, une deadline ou une tâche : **15 min / 1 h / 1 jour avant**, ou une **date précise**. Un rappel relatif suit sa cible si elle est déplacée (l'heure est recalculée par la vue `reminder_schedule`).

@@ -51,8 +51,8 @@ export function ListMenu({ list, onDeleted }: { list: TodoList; onDeleted: () =>
               </button>
             </form>
           )}
-          {/* Seul le propriétaire change le partage ; une liste de séance reste privée. */}
-          {isOwner && list.scope !== "session" && (
+          {/* Seul le propriétaire change le partage. */}
+          {isOwner && (
             <div className="flex flex-col gap-1.5 text-xs text-zinc-500">
               Partage
               {groups.length > 0 && (
@@ -115,8 +115,8 @@ export function ListMenu({ list, onDeleted }: { list: TodoList; onDeleted: () =>
   );
 }
 
-/** Lien d'invitation du groupe avec lequel la liste est partagée : à envoyer à l'autre étudiant. */
-function InviteLink({ name, code }: { name: string; code: string }) {
+/** Lien d'invitation du groupe avec lequel des tâches sont partagées : à envoyer à l'autre étudiant. */
+export function InviteLink({ name, code, intro }: { name: string; code: string; intro?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -130,7 +130,7 @@ function InviteLink({ name, code }: { name: string; code: string }) {
   return (
     <div className="flex flex-col gap-1.5 rounded-md bg-violet-50 p-2 text-xs text-violet-800 dark:bg-violet-950/60 dark:text-violet-200">
       <span>
-        Partagée avec 👥 <strong>{name}</strong>. Pour inviter quelqu&apos;un, envoie-lui le lien (il doit avoir un compte) :
+        {intro ?? "Partagée."} Groupe 👥 <strong>{name}</strong>. Pour inviter quelqu&apos;un, envoie-lui le lien (il doit avoir un compte) :
       </span>
       <div className="flex items-center gap-2">
         <button type="button" onClick={copy} className={buttonClass.secondary}>
