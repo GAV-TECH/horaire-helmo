@@ -1,13 +1,13 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import type { Group } from "@/lib/data/types";
+import type { Group, TaskShare } from "@/lib/data/types";
 
-/** Mes groupes et mon identifiant, chargés une fois par le layout et disponibles partout. */
-const GroupsContext = createContext<{ me: string; groups: Group[] }>({ me: "", groups: [] });
+/** Mes groupes, mes partages de tâches et mon identifiant, chargés une fois par le layout et disponibles partout. */
+const GroupsContext = createContext<{ me: string; groups: Group[]; shares: TaskShare[] }>({ me: "", groups: [], shares: [] });
 
-export function GroupsProvider({ me, groups, children }: { me: string; groups: Group[]; children: ReactNode }) {
-  return <GroupsContext.Provider value={{ me, groups }}>{children}</GroupsContext.Provider>;
+export function GroupsProvider({ me, groups, shares, children }: { me: string; groups: Group[]; shares: TaskShare[]; children: ReactNode }) {
+  return <GroupsContext.Provider value={{ me, groups, shares }}>{children}</GroupsContext.Provider>;
 }
 
 export function useGroups() {

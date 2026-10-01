@@ -80,6 +80,25 @@ export type Group = {
   members: GroupMember[];
 };
 
+/**
+ * Partage de tâches d'étudiant à étudiant (table task_shares). listId null = toutes les
+ * listes du propriétaire (hors projets). En attente tant que le destinataire n'a pas accepté.
+ */
+export type TaskShare = {
+  id: string;
+  ownerId: string;
+  ownerName: string;
+  recipientId: string;
+  recipientName: string;
+  listId: string | null;
+  label: string;
+  status: "pending" | "accepted";
+  createdAt: string;
+};
+
+/** Un étudiant trouvé par la recherche (adresse masquée : « gi…@gmail.com »). */
+export type StudentHit = { id: string; displayName: string; emailHint: string };
+
 /** Un cours connu (déduit des séances), pour les menus déroulants. */
 export type Course = { key: string; name: string };
 

@@ -3,15 +3,16 @@
 import { useState, useTransition } from "react";
 import type { ActionResult } from "@/lib/actions/context";
 import { renameTodoList } from "@/lib/actions/tasks";
-import { deleteTodoList, setListGroup, shareListWithNewGroup } from "@/lib/actions/todos";
+import { deleteTodoList, setListGroup } from "@/lib/actions/todos";
 import type { TodoList } from "@/lib/data/types";
-import { canEdit, formatInviteCode, inviteUrl } from "@/lib/groups";
+import { canEdit } from "@/lib/groups";
 import { useGroups } from "@/components/groups/GroupsContext";
 import { buttonClass, inputClass } from "@/components/styles";
+import { StudentShare } from "./StudentShare";
 
 /** Menu "⋯" d'une liste : renommer, partager, supprimer (selon les droits). */
 export function ListMenu({ list, onDeleted }: { list: TodoList; onDeleted: () => void }) {
-  const { me, groups } = useGroups();
+  const { me, groups, shares } = useGroups();
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -19,7 +20,6 @@ export function ListMenu({ list, onDeleted }: { list: TodoList; onDeleted: () =>
   const [pending, startTransition] = useTransition();
   const editable = canEdit(list, me, groups);
   const isOwner = list.ownerId === me;
-  const listGroup = groups.find((g) => g.id === list.groupId);
   if (!editable && !isOwner) return null;
 
   const run = (fn: () => Promise<ActionResult>, after?: () => void) =>
@@ -35,7 +35,7 @@ export function ListMenu({ list, onDeleted }: { list: TodoList; onDeleted: () =>
         ⋯
       </button>
       {open && (
-        <div className="absolute right-0 z-20 mt-1 flex w-64 flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="absolute right-0 z-20 mt-1 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
           {editable && (
             <form
               onSubmit={(e) => {
@@ -57,7 +57,7 @@ export function ListMenu({ list, onDeleted }: { list: TodoList; onDeleted: () =>
               Partage
               {groups.length > 0 && (
                 <select value={list.groupId ?? ""} disabled={pending} onChange={(e) => run(() => setListGroup(list.id, e.target.value))} aria-label="Partager avec un groupe" className={inputClass}>
-                  <option value="">Privée</option>
+                  <option value="">Aucun groupe</option>
                   {groups.map((g) => (
                     <option key={g.id} value={g.id}>
                       👥 {g.name}
@@ -65,23 +65,9 @@ export function ListMenu({ list, onDeleted }: { list: TodoList; onDeleted: () =>
                   ))}
                 </select>
               )}
-              {sharing ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const name = String(new FormData(e.currentTarget).get("name") ?? "");
-                    run(() => shareListWithNewGroup(list.id, name), () => setSharing(false));
-                  }}
-                  className="flex flex-col gap-1.5"
-                >
-                  <span>Un petit groupe est créé pour cette liste ; tu recevras un lien à envoyer à l&apos;étudiant.</span>
-                  <div className="flex gap-2">
-                    <input name="name" defaultValue={list.title.slice(0, 80)} maxLength={80} aria-label="Nom du partage" className={inputClass} />
-                    <button type="submit" disabled={pending} className={buttonClass.primary}>
-                      Créer
-                    </button>
-                  </div>
-                </form>
+              {/* Ouvert d'office si la liste est déjà partagée avec des étudiants (pour voir qui, et retirer). */}
+              {sharing || shares.some((s) => s.listId === list.id) ? (
+                <StudentShare listId={list.id} />
               ) : (
                 <button type="button" onClick={() => setSharing(true)} className={`${buttonClass.secondary} justify-start`}>
                   👤 Partager avec un étudiant…
@@ -89,7 +75,6 @@ export function ListMenu({ list, onDeleted }: { list: TodoList; onDeleted: () =>
               )}
             </div>
           )}
-          {listGroup && <InviteLink name={listGroup.name} code={listGroup.inviteCode} />}
           {editable &&
             (confirmDelete ? (
               <div className="flex flex-col gap-2 text-sm">
@@ -115,29 +100,3 @@ export function ListMenu({ list, onDeleted }: { list: TodoList; onDeleted: () =>
   );
 }
 
-/** Lien d'invitation du groupe avec lequel des tâches sont partagées : à envoyer à l'autre étudiant. */
-export function InviteLink({ name, code, intro }: { name: string; code: string; intro?: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(inviteUrl(window.location.origin, code));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false); // presse-papiers refusé : le code reste affiché
-    }
-  };
-  return (
-    <div className="flex flex-col gap-1.5 rounded-md bg-violet-50 p-2 text-xs text-violet-800 dark:bg-violet-950/60 dark:text-violet-200">
-      <span>
-        {intro ?? "Partagée."} Groupe 👥 <strong>{name}</strong>. Pour inviter quelqu&apos;un, envoie-lui le lien (il doit avoir un compte) :
-      </span>
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={copy} className={buttonClass.secondary}>
-          {copied ? "✓ Lien copié" : "Copier le lien"}
-        </button>
-        <code className="tracking-wider">{formatInviteCode(code)}</code>
-      </div>
-    </div>
-  );
-}

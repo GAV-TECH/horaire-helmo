@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionChanges, StoredSession } from "@/lib/ics/types";
-import type { Deadline, Group, Priority, Reminder, TodoItem, TodoList } from "./types";
+import type { Deadline, Group, Priority, Reminder, TaskShare, TodoItem, TodoList } from "./types";
 
 /*
  * Lecture des données. Avec le client "utilisateur" (createClient), le RLS filtre déjà ;
@@ -206,6 +206,44 @@ export async function loadGroups(supabase: SupabaseClient, userId: string): Prom
 }
 
 type MemberRow = { user_id: string; role: "admin" | "member"; joined_at: string; profiles: { display_name: string } | null };
+
+/** Mes partages de tâches, envoyés et reçus, avec les noms des deux étudiants. */
+export async function loadTaskShares(supabase: SupabaseClient): Promise<TaskShare[]> {
+  const { data, error } = await supabase
+    .from("task_shares")
+    .select(
+      "id, owner_id, recipient_id, list_id, label, status, created_at, owner:profiles!task_shares_owner_id_fkey(display_name), recipient:profiles!task_shares_recipient_id_fkey(display_name)",
+    )
+    .order("created_at");
+  if (error) {
+    // Avant la migration 0007, la table n'existe pas : l'app fonctionne sans partage.
+    console.error("[task_shares]", error.message);
+    return [];
+  }
+  return ((data ?? []) as unknown as ShareRow[]).map((r) => ({
+    id: r.id,
+    ownerId: r.owner_id,
+    ownerName: r.owner?.display_name ?? "?",
+    recipientId: r.recipient_id,
+    recipientName: r.recipient?.display_name ?? "?",
+    listId: r.list_id,
+    label: r.label,
+    status: r.status,
+    createdAt: iso(r.created_at),
+  }));
+}
+
+type ShareRow = {
+  id: string;
+  owner_id: string;
+  recipient_id: string;
+  list_id: string | null;
+  label: string;
+  status: "pending" | "accepted";
+  created_at: string;
+  owner: { display_name: string } | null;
+  recipient: { display_name: string } | null;
+};
 
 export async function loadProfile(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();

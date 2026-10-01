@@ -8,9 +8,7 @@ import { ActionMessage, useFormAction } from "@/components/ui";
 import { buttonClass, inputClass } from "@/components/styles";
 
 /** Petit formulaire "Nouvelle liste" dans la barre latérale ; ouvre la liste créée. */
-/** defaultGroupId : si toutes mes tâches sont partagées, la nouvelle liste l'est aussi par défaut. */
-export function NewListForm(props: { courses: Course[]; defaultGroupId?: string | null; onCreated: (id: string) => void; onCancel: () => void }) {
-  const { courses, defaultGroupId, onCreated, onCancel } = props;
+export function NewListForm({ courses, onCreated, onCancel }: { courses: Course[]; onCreated: (id: string) => void; onCancel: () => void }) {
   const [scope, setScope] = useState<"global" | "course">("global");
   const { onSubmit, pending, result } = useFormAction(async (prev, data) => {
     const r = await createTodoList(prev, data);
@@ -35,7 +33,7 @@ export function NewListForm(props: { courses: Course[]; defaultGroupId?: string 
           </datalist>
         </>
       )}
-      <SharePicker defaultValue={defaultGroupId ?? ""} />
+      <SharePicker />
       <ActionMessage result={result} showSuccess={false} />
       <div className="flex gap-2">
         <button type="submit" disabled={pending} className={buttonClass.primary}>

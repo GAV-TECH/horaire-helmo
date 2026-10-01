@@ -18,7 +18,7 @@ import {
 } from "@/lib/tasks";
 import { dayKey } from "@/lib/time";
 import { formatSessionDate } from "@/components/items/format";
-import { useGroups } from "@/components/groups/GroupsContext";
+import { useGroups, useMemberName } from "@/components/groups/GroupsContext";
 import { ListMenu } from "./ListHeader";
 import { NewListForm } from "./NewListForm";
 import { ShareAll } from "./ShareAll";
@@ -26,8 +26,7 @@ import { TaskDetail } from "./TaskDetail";
 import { TaskRow } from "./TaskRow";
 import { useTaskMutations } from "./useTaskMutations";
 
-/** shareAllGroupId : groupe avec lequel TOUTES mes tâches sont partagées (vue « Toutes »), ou null. */
-type Props = { lists: TodoList[]; courses: Course[]; now: number; shareAllGroupId: string | null };
+type Props = { lists: TodoList[]; courses: Course[]; now: number };
 /** Sur téléphone, un seul écran à la fois. */
 type Screen = "lists" | "tasks" | "detail";
 
@@ -36,8 +35,9 @@ type Screen = "lists" | "tasks" | "detail";
  * Les clics (cocher, étoile, Ma journée, échéance) s'affichent immédiatement grâce à
  * useOptimistic, puis la server action enregistre et la page se recale sur le serveur.
  */
-export function TasksApp({ lists: serverLists, courses, now, shareAllGroupId }: Props) {
-  const { groups, me } = useGroups();
+export function TasksApp({ lists: serverLists, courses, now }: Props) {
+  const { groups, me, shares } = useGroups();
+  const memberName = useMemberName();
   const today = dayKey(now);
   const { lists, error, toggleDone, toggleImportant, toggleMyDay, setDue, rename, remove: removeTask, add } = useTaskMutations(serverLists, today);
   const [view, setView] = useState<string>("jour");
@@ -87,6 +87,11 @@ export function TasksApp({ lists: serverLists, courses, now, shareAllGroupId }: 
   const isPlainList = (l: TodoList) => l.scope !== "session" && l.scope !== "project";
   const privateLists = lists.filter((l) => isPlainList(l) && l.ownerId === me);
   const sharedLists = lists.filter((l) => isPlainList(l) && l.ownerId !== me);
+  // Une de mes listes est partagée : avec un groupe, ou avec un étudiant (elle seule, ou toutes mes tâches).
+  const sharesAll = shares.some((s) => s.ownerId === me && s.listId === null);
+  // Nom du propriétaire d'une liste partagée avec moi (deux listes « Tâches » restent distinguables).
+  const ownerName = (userId: string) => shares.find((s) => s.ownerId === userId)?.ownerName ?? memberName(userId);
+  const isShared = (l: TodoList) => l.groupId !== null || sharesAll || shares.some((s) => s.listId === l.id);
   const projects = lists.filter((l) => l.scope === "project");
   const title = currentList?.title ?? smart?.name ?? "Tâches";
   const group = currentList?.groupId ? groups.find((g) => g.id === currentList.groupId) : null;
@@ -144,11 +149,11 @@ export function TasksApp({ lists: serverLists, courses, now, shareAllGroupId }: 
         ))}
         {privateLists.length > 0 && <NavTitle>Mes listes</NavTitle>}
         {privateLists.map((l) => (
-          <NavItem key={l.id} active={view === l.id} onClick={() => openView(l.id)} icon={<ListDot list={l} />} label={l.title} count={openCount(l.id)} badge={l.groupId ? "👥" : undefined} />
+          <NavItem key={l.id} active={view === l.id} onClick={() => openView(l.id)} icon={<ListDot list={l} />} label={l.title} count={openCount(l.id)} badge={isShared(l) ? "👥" : undefined} />
         ))}
         {sharedLists.length > 0 && <NavTitle>Partagées avec moi</NavTitle>}
         {sharedLists.map((l) => (
-          <NavItem key={l.id} active={view === l.id} onClick={() => openView(l.id)} icon={<ListDot list={l} />} label={l.title} count={openCount(l.id)} badge="👥" />
+          <NavItem key={l.id} active={view === l.id} onClick={() => openView(l.id)} icon={<ListDot list={l} />} label={`${l.title} · ${ownerName(l.ownerId)}`} count={openCount(l.id)} badge="👥" />
         ))}
         {projects.length > 0 && <NavTitle>Projets</NavTitle>}
         {projects.map((l) => (
@@ -158,7 +163,6 @@ export function TasksApp({ lists: serverLists, courses, now, shareAllGroupId }: 
           {creatingList ? (
             <NewListForm
               courses={courses}
-              defaultGroupId={shareAllGroupId}
               onCreated={(id) => {
                 setCreatingList(false);
                 openView(id);
@@ -192,7 +196,7 @@ export function TasksApp({ lists: serverLists, courses, now, shareAllGroupId }: 
           </p>
         </header>
 
-        {view === "toutes" && <ShareAll groupId={shareAllGroupId} />}
+        {view === "toutes" && <ShareAll />}
         {view !== "seances" && (
           <form onSubmit={addTask} className="mx-4 mb-2 flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-white px-3 focus-within:border-blue-500 md:mx-6 dark:border-zinc-800 dark:bg-zinc-900">
             <span aria-hidden className="text-xl leading-none text-blue-600 dark:text-blue-400">
