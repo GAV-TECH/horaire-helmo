@@ -27,7 +27,10 @@ export type Session = {
 export type SessionChanges = {
   moved?: { fromStart: string; fromEnd: string };
   room?: { from: string | null };
+  /** Marquée annulée par HELMO (STATUS:CANCELLED). */
   cancelled?: true;
+  /** Disparue du flux HELMO (sans qu'un déplacement ait pu être reconnu). */
+  removed?: true;
   /** Séance apparue à la dernière minute (dans les 14 prochains jours). */
   added?: true;
 };

@@ -14,7 +14,8 @@ import { dayKey, formatFr } from "@/lib/time";
 import { buttonClass } from "@/components/ui";
 import { DayList } from "./DayList";
 import { SessionDetail } from "./SessionDetail";
-import { changeBadge } from "./SessionBlock";
+import { unseenChanges } from "./SessionBlock";
+import { CHANGE_LEGEND } from "@/lib/sessions/changes";
 import { TimeGrid } from "./TimeGrid";
 
 type View = "day" | "week" | "upcoming";
@@ -81,7 +82,7 @@ export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, init
 
   const openDeadlines = useMemo(() => deadlines.filter((d) => !d.doneAt), [deadlines]);
   const courses = useMemo(() => coursesFrom(sessions), [sessions]);
-  const changed = sessions.filter((s) => changeBadge(s) !== null);
+  const changed = sessions.filter((s) => unseenChanges(s).length > 0);
   const today = dayKey(now);
 
   // Semaine : lundi → vendredi, plus le week-end seulement s'il contient des séances.
@@ -140,25 +141,44 @@ export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, init
       )}
 
       {changed.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-400 bg-amber-50 px-3 py-2 text-sm dark:bg-amber-950/40">
-          <span className="mr-auto">
-            {changed.length === 1 ? "1 séance a changé" : `${changed.length} séances ont changé`} depuis ta dernière visite.
-          </span>
-          {changed.length <= 3 &&
-            changed.map((s) => (
-              <button key={s.key} type="button" onClick={() => setSelectedKey(s.key)} className="underline">
-                {parseCourseTitle(s.title).course} ({formatFr(s.start, "EEE d")})
-              </button>
+        <section className="rounded-md border border-amber-400 bg-amber-50 px-3 py-2 text-sm dark:bg-amber-950/40" aria-label="Changements d'horaire">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="mr-auto font-medium">
+              {changed.length === 1 ? "1 séance a changé" : `${changed.length} séances ont changé`} depuis ta dernière visite
+            </p>
+            <button
+              type="button"
+              disabled={markingAll}
+              onClick={() => startMarkAll(async () => void (await markChangesSeen()))}
+              className={buttonClass.secondary}
+            >
+              Tout marquer comme vu
+            </button>
+          </div>
+          {/* Chaque séance modifiée, avec la nature exacte du changement */}
+          <ul className="mt-2 flex flex-col gap-1">
+            {changed.slice(0, 6).map((s) => (
+              <li key={s.key}>
+                <button type="button" onClick={() => setSelectedKey(s.key)} className="text-left hover:underline">
+                  <span className="font-medium">{parseCourseTitle(s.title).course}</span>{" "}
+                  <span className="capitalize text-zinc-600 dark:text-zinc-400">{formatFr(s.start, "EEE d MMM · HH:mm")}</span>
+                  {" — "}
+                  {unseenChanges(s)
+                    .map((c) => `${c.icon} ${c.label}${c.detail ? ` (${c.detail})` : ""}`)
+                    .join(" · ")}
+                </button>
+              </li>
             ))}
-          <button
-            type="button"
-            disabled={markingAll}
-            onClick={() => startMarkAll(async () => void (await markChangesSeen()))}
-            className={buttonClass.secondary}
-          >
-            Tout marquer comme vu
-          </button>
-        </div>
+            {changed.length > 6 && <li className="text-zinc-500">… et {changed.length - 6} autre(s)</li>}
+          </ul>
+          <p className="mt-2 flex flex-wrap gap-x-3 text-xs text-zinc-600 dark:text-zinc-400">
+            {CHANGE_LEGEND.map((l) => (
+              <span key={l.kind}>
+                {l.icon} {l.label}
+              </span>
+            ))}
+          </p>
+        </section>
       )}
 
       <nav className="flex flex-wrap items-center gap-2" aria-label="Navigation dans l'horaire">

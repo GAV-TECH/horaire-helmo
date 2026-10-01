@@ -60,6 +60,7 @@ async function run(userId: string, force: boolean): Promise<SyncResult> {
     const previous = await removeLegacyDuplicates(admin, userId, await loadSessions(admin, userId));
     const writes = diffSessions(previous, incoming, now);
     await writeSessions(admin, userId, writes);
+    await followMovedSessions(admin, userId, previous, writes);
     await relinkReferences(admin, userId, merge(previous, writes));
 
     await admin.from("ics_sources").update({ last_synced_at: now.toISOString(), last_error: null }).eq("user_id", userId);
@@ -93,6 +94,24 @@ async function removeLegacyDuplicates(admin: SupabaseClient, userId: string, pre
   }
   const removed = new Set(ids);
   return previous.filter((p) => !removed.has(p.id));
+}
+
+/**
+ * Séance déplacée avec un nouvel UID (reconnue par diffSessions) : la ligne garde son id, donc
+ * ses rappels suivent ; les listes de tâches, elles, pointent vers l'ancienne clé → on les déplace.
+ */
+async function followMovedSessions(admin: SupabaseClient, userId: string, previous: StoredSession[], writes: SessionWrite[]) {
+  const before = new Map(previous.map((p) => [p.id, p]));
+  for (const w of writes) {
+    const old = w.id ? before.get(w.id) : undefined;
+    if (!old || old.key === w.key) continue;
+    const { error } = await admin
+      .from("todo_lists")
+      .update({ session_key: w.key, session_start: w.start })
+      .eq("user_id", userId)
+      .eq("session_key", old.key);
+    if (error) throw dbError(error, "sync.moved");
+  }
 }
 
 function toRow(userId: string, s: SessionWrite) {

@@ -11,10 +11,10 @@ import { formatFr, isoToBrusselsInputs } from "@/lib/time";
 import { DeadlineEditor } from "@/components/deadlines/DeadlineEditor";
 import { DeadlineRow } from "@/components/items/DeadlineRow";
 import { TodoItemRow } from "@/components/items/TodoItemRow";
-import { formatSessionDate } from "@/components/items/format";
 import { ReminderControl } from "@/components/reminders/ReminderControl";
 import { ActionMessage, buttonClass, inputClass, useFormAction } from "@/components/ui";
 import { timeRange } from "./SessionBlock";
+import { describeChanges } from "@/lib/sessions/changes";
 
 type Props = {
   session: StoredSession;
@@ -74,7 +74,7 @@ export function SessionDetail({ session, tasks, courseDeadlines, courses, sessio
 
         <ChangesBox session={session} />
 
-        {session.status === "cancelled" && !session.changes.cancelled && (
+        {session.status === "cancelled" && !session.changes.cancelled && !session.changes.removed && (
           <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
             Cette séance est annulée.
           </p>
@@ -173,19 +173,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 /** Explique ce qui a changé depuis l'import initial, avec un bouton pour faire disparaître le badge. */
 function ChangesBox({ session }: { session: StoredSession }) {
   const [pending, startTransition] = useTransition();
-  const c = session.changes;
-  const lines: string[] = [];
-  if (c.cancelled) lines.push("Séance annulée ou retirée de l'horaire.");
-  if (c.moved) lines.push(`Déplacée : prévue initialement le ${formatSessionDate(c.moved.fromStart)} – ${formatFr(c.moved.fromEnd, "HH:mm")}.`);
-  if (c.room) lines.push(`Local changé : était ${c.room.from ?? "non précisé"}.`);
-  if (c.added) lines.push("Séance ajoutée récemment à l'horaire.");
-  if (lines.length === 0) return null;
+  // Toujours affiché (même déjà "vu") : l'historique de ce qui a changé sur cette séance.
+  const changes = describeChanges(session);
+  if (changes.length === 0) return null;
 
   return (
     <div className="mb-4 rounded-md border border-amber-400 bg-amber-50 p-3 text-sm dark:bg-amber-950/40">
-      <ul className="list-disc pl-4">
-        {lines.map((line) => (
-          <li key={line}>{line}</li>
+      <p className="mb-1 font-medium">Modifiée par HELMO</p>
+      <ul className="flex flex-col gap-1">
+        {changes.map((c) => (
+          <li key={c.kind}>
+            {c.icon} <strong>{c.label}</strong>
+            {c.detail && ` : ${c.detail}`}
+          </li>
         ))}
       </ul>
       {!session.changesSeen && (

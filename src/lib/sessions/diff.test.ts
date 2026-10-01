@@ -87,11 +87,57 @@ describe("diffSessions", () => {
     expect(write.changes.cancelled).toBe(true);
   });
 
-  it("marque annulée une séance future qui disparaît du flux, sans la supprimer", () => {
+  it("marque « retirée » (pas « annulée ») une séance future qui disparaît du flux, sans la supprimer", () => {
     const other = session({ key: "autre", uid: "autre", courseKey: "anglais", title: "Anglais" });
     const writes = diffSessions([stored()], [other], NOW);
-    const cancelled = writes.find((w) => w.id === "id-1");
-    expect(cancelled).toMatchObject({ status: "cancelled", changes: { cancelled: true }, changesSeen: false });
+    const removed = writes.find((w) => w.id === "id-1");
+    expect(removed).toMatchObject({ status: "cancelled", changes: { removed: true }, changesSeen: false });
+    expect(removed?.changes.cancelled).toBeUndefined();
+  });
+
+  describe("déplacement avec nouvel UID (HELMO supprime et recrée la séance)", () => {
+    const evaluation = (over: Partial<StoredSession> = {}) =>
+      stored({
+        key: "eval-1", uid: "eval-1", title: "Thermodynamique : évaluation / X / 413 (CO)", courseKey: "thermo-eval",
+        start: "2025-10-19T06:15:00.000Z", end: "2025-10-19T08:15:00.000Z", location: "413", ...over,
+      });
+
+    it("reconnaît le déplacement : même cours, même type, à moins de 30 jours", () => {
+      const moved = session({
+        key: "eval-2", uid: "eval-2", title: "Thermodynamique - évaluation / X / 419 (CO)", courseKey: "autre-cle",
+        start: "2025-10-26T07:15:00.000Z", end: "2025-10-26T09:15:00.000Z", location: "419",
+      });
+      const writes = diffSessions([evaluation()], [moved], NOW);
+      expect(writes).toHaveLength(1);
+      expect(writes[0]).toMatchObject({
+        id: "id-1",
+        key: "eval-2",
+        changes: { moved: { fromStart: "2025-10-19T06:15:00.000Z", fromEnd: "2025-10-19T08:15:00.000Z" }, room: { from: "413" } },
+        changesSeen: false,
+      });
+    });
+
+    it("ne confond pas deux types de séance ni des dates trop éloignées", () => {
+      const theory = session({ key: "t", uid: "t", title: "Thermodynamique : théorie / X / 629 (CO)", start: "2025-10-20T06:15:00.000Z", end: "2025-10-20T08:15:00.000Z" });
+      const far = session({ key: "f", uid: "f", title: "Thermodynamique : évaluation / X / 413 (CO)", start: "2025-12-15T06:15:00.000Z", end: "2025-12-15T08:15:00.000Z" });
+      const writes = diffSessions([evaluation()], [theory, far], NOW);
+      expect(writes.find((w) => w.id === "id-1")?.changes).toEqual({ removed: true });
+      expect(writes.filter((w) => !w.id)).toHaveLength(2);
+    });
+  });
+
+  it("reclasse en « retirée » une ancienne séance notée « annulée » qui n'est plus dans le flux", () => {
+    const legacy = stored({ status: "cancelled", changes: { cancelled: true }, changesSeen: true });
+    const other = session({ key: "autre", uid: "autre", courseKey: "anglais", title: "Anglais" });
+    const write = diffSessions([legacy], [other], NOW).find((w) => w.id === "id-1");
+    expect(write).toMatchObject({ status: "cancelled", changes: { removed: true }, changesSeen: true });
+    expect(write?.changes.cancelled).toBeUndefined();
+  });
+
+  it("une séance retirée qui réapparaît perd son badge « retirée »", () => {
+    const back = stored({ status: "cancelled", changes: { removed: true }, changesSeen: false });
+    const [write] = diffSessions([back], [session()], NOW);
+    expect(write).toMatchObject({ status: "active", changes: {} });
   });
 
   it("ne touche pas une séance passée qui disparaît du flux", () => {
