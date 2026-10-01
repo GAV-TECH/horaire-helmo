@@ -74,9 +74,10 @@ export function sameCourse(a: string | null | undefined, b: string | null | unde
  * Liste des COURS (un par cours, pas un par séance ou par local), pour les menus déroulants.
  * Nom affiché : la variante d'écriture la plus fréquente dans l'horaire.
  */
-export function coursesFrom(sessions: { title: string }[]): { key: string; name: string }[] {
+export function coursesFrom(sessions: { title: string; key?: string }[]): { key: string; name: string }[] {
   const variants = new Map<string, Map<string, number>>();
   for (const s of sessions) {
+    if (s.key?.startsWith("perso:")) continue; // plage ajoutée à la main : pas un cours
     const key = courseGroupKey(s.title);
     if (!key) continue;
     const name = parseCourseTitle(s.title).course;

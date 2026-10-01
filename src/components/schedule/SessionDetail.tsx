@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { markChangesSeen } from "@/lib/actions/sessions";
+import { deleteManualSession, markChangesSeen } from "@/lib/actions/sessions";
+import { isManualSession } from "@/lib/sessions/manual";
 import { addSessionTask } from "@/lib/actions/todos";
 import { courseColor, parseCourseTitle } from "@/lib/courses";
 import type { Course, Deadline, TodoItem } from "@/lib/data/types";
@@ -73,6 +74,7 @@ export function SessionDetail({ session, tasks, courseDeadlines, courses, sessio
         </div>
 
         <ChangesBox session={session} />
+        {isManualSession(session) && <DeleteManual id={session.id} onDeleted={onClose} />}
 
         {session.status === "cancelled" && !session.changes.cancelled && !session.changes.removed && (
           <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
@@ -219,5 +221,31 @@ function SessionTaskForm({ session }: { session: StoredSession }) {
       </div>
       <ActionMessage result={result} />
     </form>
+  );
+}
+
+/** Plage ajoutée à la main : seule sorte de séance qu'on peut supprimer. */
+function DeleteManual({ id, onDeleted }: { id: string; onDeleted: () => void }) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <p className="mb-3 flex items-center gap-2 text-sm text-zinc-500">
+      <span className="flex-1">Plage ajoutée par toi.</span>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          startTransition(async () => {
+            const r = await deleteManualSession(id);
+            if (r.ok) onDeleted();
+            else setError(r.error);
+          })
+        }
+        className={buttonClass.danger}
+      >
+        Supprimer
+      </button>
+      {error && <span className="text-red-600 dark:text-red-400">{error}</span>}
+    </p>
   );
 }

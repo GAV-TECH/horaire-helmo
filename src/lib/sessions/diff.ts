@@ -1,3 +1,4 @@
+import { isManualSession } from "./manual";
 import { courseGroupKey, parseCourseTitle } from "@/lib/courses";
 import type { Session, SessionChanges, StoredSession } from "@/lib/ics/types";
 
@@ -39,7 +40,9 @@ export function fallbackKey(courseKey: string, start: string): string {
  *   "annulée" est réservé aux séances que HELMO marque lui-même STATUS:CANCELLED ;
  * - les séances passées ne sont jamais signalées.
  */
-export function diffSessions(previous: StoredSession[], incoming: Session[], now: Date): SessionWrite[] {
+export function diffSessions(allPrevious: StoredSession[], incoming: Session[], now: Date): SessionWrite[] {
+  // Les plages ajoutées à la main ne viennent pas du flux : la synchro n'y touche jamais.
+  const previous = allPrevious.filter((p) => !isManualSession(p));
   const nowIso = now.toISOString();
   const addedLimit = new Date(now.getTime() + ADDED_WINDOW_MS).toISOString();
   const firstSync = previous.length === 0;

@@ -36,6 +36,10 @@ describe("legacyDuplicates", () => {
 });
 
 describe("diffSessions", () => {
+  it("ne touche jamais une plage ajoutée à la main (absente du flux, mais pas « retirée »)", () => {
+    const manual = stored({ id: "m", key: "perso:1", uid: "perso:1", title: "Sport", courseKey: "sport" });
+    expect(diffSessions([manual, stored()], [session()], NOW).filter((w) => w.id === "m")).toEqual([]);
+  });
   it("première synchro : tout est inséré sans aucun badge", () => {
     const writes = diffSessions([], [session(), session({ key: "b", uid: "b" })], NOW);
     expect(writes).toHaveLength(2);

@@ -13,6 +13,7 @@ import type { SyncResult } from "@/lib/sync-types";
 import { dayKey, formatFr } from "@/lib/time";
 import { buttonClass } from "@/components/ui";
 import { DayList } from "./DayList";
+import { ManualSessionForm } from "./ManualSessionForm";
 import { SessionDetail } from "./SessionDetail";
 import { unseenChanges } from "./SessionBlock";
 import { CHANGE_LEGEND } from "@/lib/sessions/changes";
@@ -45,6 +46,7 @@ export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, init
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [now, setNow] = useState(initialNow);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const [markingAll, startMarkAll] = useTransition();
 
@@ -126,10 +128,15 @@ export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, init
       <header className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-xl font-bold">Mon horaire</h1>
         {sync.syncedAt && <span className="text-xs text-zinc-500">Synchronisé à {formatFr(sync.syncedAt, "HH:mm")}</span>}
+        <button type="button" onClick={() => setAdding(!adding)} aria-expanded={adding} className={buttonClass.secondary}>
+          ＋ Plage
+        </button>
         <button type="button" onClick={refresh} disabled={refreshing} className={buttonClass.secondary}>
           {refreshing ? "Actualisation…" : "Actualiser"}
         </button>
       </header>
+
+      {adding && <ManualSessionForm defaultDate={anchor} onDone={() => setAdding(false)} />}
 
       {(refreshError ?? sync.error) && (
         <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
