@@ -99,6 +99,9 @@ export type TaskShare = {
 /** Message de la discussion d'un projet. authorName est copié à l'envoi (trigger SQL). */
 export type ProjectMessage = { id: string; authorId: string; authorName: string; body: string; createdAt: string };
 
+/** Document partagé d'un projet : un lien vers un fichier en ligne. */
+export type ProjectLink = { id: string; authorId: string; title: string; url: string };
+
 /** Un étudiant trouvé par la recherche (adresse masquée : « gi…@gmail.com »). */
 export type StudentHit = { id: string; displayName: string; emailHint: string };
 

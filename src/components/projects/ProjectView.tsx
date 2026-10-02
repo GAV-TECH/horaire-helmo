@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { ProjectMessage, TodoList } from "@/lib/data/types";
+import type { ProjectLink, ProjectMessage, TodoList } from "@/lib/data/types";
 import { projectProgress } from "@/lib/projects";
 import { ProjectChat } from "./ProjectChat";
+import { ProjectDocs } from "./ProjectDocs";
 import { flattenTasks, groupTasksByDay, sortTasks, splitOverdue } from "@/lib/tasks";
 import { dayKey } from "@/lib/time";
 import { SharedBadge } from "@/components/groups/share";
@@ -15,8 +16,10 @@ import { TaskDetail } from "@/components/tasks/TaskDetail";
 import { TaskRow } from "@/components/tasks/TaskRow";
 import { useTaskMutations } from "@/components/tasks/useTaskMutations";
 
-/** Page d'un projet : ses tâches (avec échéances et rappels), leur avancement, et le détail de la tâche ouverte. */
-export function ProjectView({ project: serverProject, messages, now }: { project: TodoList; messages: ProjectMessage[] | null; now: number }) {
+type Props = { project: TodoList; messages: ProjectMessage[] | null; links: ProjectLink[] | null; now: number };
+
+/** Page d'un projet : ses tâches (échéances, rappels), leur avancement, ses documents, sa discussion, et le détail de la tâche ouverte. */
+export function ProjectView({ project: serverProject, messages, links, now }: Props) {
   const router = useRouter();
   const today = dayKey(now);
   const { groups } = useGroups();
@@ -132,7 +135,8 @@ export function ProjectView({ project: serverProject, messages, now }: { project
           </div>
         )}
 
-        {/* null = table absente (migration 0008 pas encore exécutée) : pas de discussion. */}
+        {/* null = table absente (migrations 0008 / 0009 pas encore exécutées) : bloc masqué. */}
+        {links && <ProjectDocs projectId={project.id} ownerId={project.ownerId} links={links} />}
         {messages && <ProjectChat projectId={project.id} messages={messages} />}
       </div>
 

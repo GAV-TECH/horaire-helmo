@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDigest, buildNotification, formatRelative, formatWhen, type DigestRow, type DueReminder } from "./message";
+import { buildDigest, buildNotification, formatRelative, formatWhen, type DigestRow, type DueReminder, buildMessageNotification } from "./message";
 
 const NOW = new Date("2025-10-06T06:00:00Z"); // lundi 6 octobre, 08:00 à Bruxelles
 
@@ -81,5 +81,17 @@ describe("buildNotification", () => {
     expect(buildNotification(reminder({ target_done: true }), NOW)).toBeNull();
     expect(buildNotification(reminder({ target_title: null }), NOW)).toBeNull();
     expect(buildNotification(reminder({ fire_at: "2025-10-05T12:00:00Z" }), NOW)).toBeNull();
+  });
+});
+
+describe("buildMessageNotification", () => {
+  const m = { message_id: "m1", recipient_id: "u2", list_id: "p1", project_title: "Pont", author_name: "Bob", body: "réunion\n demain ?" };
+  it("projet en titre, auteur + texte, lien vers le projet, un tag par projet", () => {
+    expect(buildMessageNotification(m)).toEqual({ title: "💬 Pont", body: "Bob : réunion demain ?", url: "/projets/p1", tag: "discussion-p1" });
+  });
+  it("coupe les longs messages", () => {
+    const body = buildMessageNotification({ ...m, body: "x".repeat(500) }).body;
+    expect(body.length).toBe("Bob : ".length + 140);
+    expect(body.endsWith("…")).toBe(true);
   });
 });

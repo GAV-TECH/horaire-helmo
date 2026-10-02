@@ -128,3 +128,27 @@ export function buildNotification(r: DueReminder, now: Date): NotificationPayloa
   const when = at ? `Échéance ${formatWhen(at, now)}` : "Tâche à faire";
   return { title: `☐ ${r.target_title}`, body: [when, r.target_detail].filter(Boolean).join(" · "), url: "/taches", tag };
 }
+
+/** Une ligne de claim_message_notifications : un message de discussion, pour un destinataire. */
+export type MessageRow = {
+  message_id: string;
+  recipient_id: string;
+  list_id: string;
+  project_title: string;
+  author_name: string;
+  body: string;
+};
+
+/**
+ * Notification d'un message de discussion de projet. Le tag est par projet : sur le téléphone,
+ * un nouveau message remplace le précédent du même projet au lieu d'empiler les notifications.
+ */
+export function buildMessageNotification(m: MessageRow): NotificationPayload {
+  const text = m.body.replace(/\s+/g, " ").trim();
+  return {
+    title: `💬 ${m.project_title}`,
+    body: `${m.author_name} : ${text.length > 140 ? `${text.slice(0, 139)}…` : text}`,
+    url: `/projets/${m.list_id}`,
+    tag: `discussion-${m.list_id}`,
+  };
+}

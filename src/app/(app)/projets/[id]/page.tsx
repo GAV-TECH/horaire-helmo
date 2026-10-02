@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProjectView } from "@/components/projects/ProjectView";
 import { requireUser } from "@/lib/auth";
-import { loadProjectMessages, loadTodoLists } from "@/lib/data/queries";
+import { loadProjectLinks, loadProjectMessages, loadTodoLists } from "@/lib/data/queries";
 import { requestNow } from "@/lib/request-time";
 import { idSchema } from "@/lib/validation";
 
@@ -12,7 +12,12 @@ export default async function ProjetPage({ params }: PageProps<"/projets/[id]">)
   const { id } = await params;
   if (!idSchema.safeParse(id).success) notFound();
   const { user, supabase } = await requireUser();
-  const [lists, messages, now] = await Promise.all([loadTodoLists(supabase, user.id), loadProjectMessages(supabase, id), requestNow()]);
+  const [lists, messages, links, now] = await Promise.all([
+    loadTodoLists(supabase, user.id),
+    loadProjectMessages(supabase, id),
+    loadProjectLinks(supabase, id),
+    requestNow(),
+  ]);
   // Le RLS ne renvoie que mes projets et ceux de mes groupes : introuvable = pas le droit (ou supprimé).
   const project = lists.find((l) => l.id === id && l.scope === "project");
   if (!project) {
@@ -26,5 +31,5 @@ export default async function ProjetPage({ params }: PageProps<"/projets/[id]">)
       </div>
     );
   }
-  return <ProjectView project={project} messages={messages} now={now} />;
+  return <ProjectView project={project} messages={messages} links={links} now={now} />;
 }

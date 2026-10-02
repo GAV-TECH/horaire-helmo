@@ -144,6 +144,20 @@ SQL Editor → *New query* → colle [`supabase/migrations/0007_partage_taches.s
 
 SQL Editor → *New query* → colle [`supabase/migrations/0008_discussion_projet.sql`](supabase/migrations/0008_discussion_projet.sql) → **Run**. Ensuite : **Projets** → ouvre un projet → *Discussion*, sous les tâches. Peuvent lire et écrire : le propriétaire, les membres du groupe du projet et les étudiants avec qui il est partagé.
 
+## 12. Documents des projets (à faire une fois)
+
+SQL Editor → *New query* → colle [`supabase/migrations/0009_documents_projet.sql`](supabase/migrations/0009_documents_projet.sql) → **Run**. Ensuite, dans un projet : bloc *Documents* → *Ajouter un lien* (lien de partage d'un fichier Word en ligne / OneDrive, Google Docs, PDF…). Rien n'est stocké dans l'app : tous les membres ouvrent et modifient le même fichier.
+
+## 13. Notifications des discussions (à faire une fois)
+
+1. SQL Editor → *New query* → colle [`supabase/migrations/0010_notifications_discussion.sql`](supabase/migrations/0010_notifications_discussion.sql) → **Run** (après 0007 et 0008).
+2. Redéploie la fonction d'envoi :
+   ```powershell
+   npx supabase functions deploy send-reminders --project-ref mlxgvpghjhqzfqsuekuw --no-verify-jwt --use-api
+   ```
+
+Chaque message d'une discussion de projet est notifié (en moins d'une minute) aux autres membres qui ont activé les notifications dans **Rappels**.
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire

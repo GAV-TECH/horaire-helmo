@@ -16,6 +16,7 @@ const TABLES = [
   "reminders",
   "task_shares",
   "project_messages",
+  "project_links",
 ];
 
 /**

@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionChanges, StoredSession } from "@/lib/ics/types";
-import type { Deadline, Group, Priority, ProjectMessage, Reminder, TaskShare, TodoItem, TodoList } from "./types";
+import type { Deadline, Group, Priority, ProjectLink, ProjectMessage, Reminder, TaskShare, TodoItem, TodoList } from "./types";
 
 /*
  * Lecture des données. Avec le client "utilisateur" (createClient), le RLS filtre déjà ;
@@ -263,6 +263,16 @@ export async function loadProjectMessages(supabase: SupabaseClient, listId: stri
   return (data ?? [])
     .map((m) => ({ id: m.id, authorId: m.user_id, authorName: m.author_name, body: m.body, createdAt: iso(m.created_at) }))
     .reverse();
+}
+
+/** Documents (liens) d'un projet. null = indisponible (migration 0009 pas encore exécutée). */
+export async function loadProjectLinks(supabase: SupabaseClient, listId: string): Promise<ProjectLink[] | null> {
+  const { data, error } = await supabase.from("project_links").select("id, user_id, title, url").eq("list_id", listId).order("created_at");
+  if (error) {
+    console.error("[project_links]", error.message);
+    return null;
+  }
+  return (data ?? []).map((l) => ({ id: l.id, authorId: l.user_id, title: l.title, url: l.url }));
 }
 
 export async function loadProfile(supabase: SupabaseClient, userId: string) {
