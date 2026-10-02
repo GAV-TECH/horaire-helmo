@@ -31,3 +31,16 @@ body {
     display: none;
   }
 }
+
+/*
+ * iPhone : Safari zoome dans la page dès qu'on touche un champ dont le texte fait moins de 16px,
+ * et ne dézoome pas ensuite (la barre du bas se retrouve alors au milieu de l'écran).
+ * 16px sur téléphone = pas de zoom automatique.
+ */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

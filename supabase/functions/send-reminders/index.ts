@@ -1,7 +1,8 @@
 /**
  * Edge Function Supabase "send-reminders" (Deno).
  * Appelée chaque minute par pg_cron (voir supabase/cron.sql) :
- * (elle envoie aussi le débrief du soir, les messages des discussions et les documents ajoutés aux projets)
+ * (elle envoie aussi le débrief du soir, les messages des discussions, les documents ajoutés aux projets
+ * et les tâches ajoutées aux listes partagées)
  * 1. réserve les rappels arrivés à échéance (claim_due_reminders) : une ligne par destinataire
  *    (l'auteur, ou chaque membre du groupe pour un rappel partagé, sauf ceux qui l'ont coupé) ;
  * 2. envoie une notification Web Push à chaque appareil de l'utilisateur ;
@@ -15,10 +16,12 @@ import {
   buildLinkNotification,
   buildMessageNotification,
   buildNotification,
+  buildTaskNotification,
   type DigestRow,
   type DueReminder,
   type LinkRow,
   type MessageRow,
+  type TaskRow,
 } from "./message.ts";
 import { sendWebPush, type VapidKeys } from "./webpush.ts";
 
@@ -84,7 +87,13 @@ Deno.serve(async (req) => {
   const links = (linkData ?? []) as LinkRow[];
   for (const link of links) outbox.push({ userId: link.recipient_id, payload: JSON.stringify(buildLinkNotification(link)) });
 
-  if (outbox.length === 0) return Response.json({ claimed: 0, digests: 0, messages: 0, links: 0, sent: 0 });
+  // Tâches ajoutées à une liste partagée (migration 0013). Fonction SQL absente : on l'ignore.
+  const { data: taskData, error: taskError } = await db.rpc("claim_task_notifications", { max_rows: 200 });
+  if (taskError) console.error("claim_task_notifications :", taskError.message);
+  const tasks = (taskData ?? []) as TaskRow[];
+  for (const task of tasks) outbox.push({ userId: task.recipient_id, payload: JSON.stringify(buildTaskNotification(task)) });
+
+  if (outbox.length === 0) return Response.json({ claimed: 0, digests: 0, messages: 0, links: 0, tasks: 0, sent: 0 });
 
   const userIds = [...new Set(outbox.map((n) => n.userId))];
   const { data: subs, error: subsError } = await db
@@ -119,5 +128,5 @@ Deno.serve(async (req) => {
   }
 
   if (gone.size > 0) await db.from("push_subscriptions").delete().in("id", [...gone]);
-  return Response.json({ claimed: due.length, digests: digests.length, messages: messages.length, links: links.length, sent, failed, removed: gone.size });
+  return Response.json({ claimed: due.length, digests: digests.length, messages: messages.length, links: links.length, tasks: tasks.length, sent, failed, removed: gone.size });
 });

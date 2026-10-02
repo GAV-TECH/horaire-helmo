@@ -160,6 +160,8 @@ Pour être aussi notifié quand un **document** est ajouté à un projet : exéc
 
 Pour un envoi **immédiat** (au lieu d'attendre la tâche planifiée, jusqu'à 1 minute) : exécute [`supabase/migrations/0012_notifications_immediates.sql`](supabase/migrations/0012_notifications_immediates.sql). Chaque nouveau message ou document appelle alors lui-même la fonction d'envoi (pg_net + secret du Vault, comme la tâche planifiée).
 
+Pour être notifié quand une **tâche** est ajoutée à une liste partagée (groupe ou étudiant) : exécute [`supabase/migrations/0013_notifications_taches.sql`](supabase/migrations/0013_notifications_taches.sql) (après 0007 et 0012), puis redéploie la fonction.
+
 Chaque message d'une discussion de projet est notifié (en quelques secondes avec 0012, sinon en moins d'une minute) aux autres membres qui ont activé les notifications dans **Rappels**.
 
 ## Fonctionnement

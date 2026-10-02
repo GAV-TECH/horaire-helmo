@@ -165,3 +165,24 @@ export function buildLinkNotification(l: LinkRow): NotificationPayload {
     tag: `document-${l.link_id}`,
   };
 }
+
+/** Une ligne de claim_task_notifications : une tâche ajoutée à une liste partagée, pour un destinataire. */
+export type TaskRow = {
+  item_id: string;
+  recipient_id: string;
+  list_id: string;
+  list_title: string;
+  list_scope: string;
+  author_name: string;
+  title: string;
+};
+
+/** Notification d'une tâche ajoutée à une liste partagée. Un projet s'ouvre sur sa page, le reste sur Tâches. */
+export function buildTaskNotification(t: TaskRow): NotificationPayload {
+  return {
+    title: `☐ ${t.list_title}`,
+    body: `${t.author_name} a ajouté une tâche : ${t.title}`,
+    url: t.list_scope === "project" ? `/projets/${t.list_id}` : "/taches",
+    tag: `tache-${t.item_id}`,
+  };
+}

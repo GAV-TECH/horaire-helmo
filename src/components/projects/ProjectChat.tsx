@@ -38,7 +38,7 @@ export function ProjectChat({ projectId, messages }: { projectId: string; messag
   return (
     <section aria-label="Discussion du projet" className="mt-6 flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-800">
       <h2 className="border-b border-zinc-200 px-3 py-2 text-sm font-semibold dark:border-zinc-800">💬 Discussion</h2>
-      <div ref={box} className="no-scrollbar flex max-h-96 min-h-24 flex-col gap-1.5 overflow-y-auto p-3" aria-live="polite">
+      <div ref={box} className="no-scrollbar flex max-h-96 min-h-24 flex-col gap-1.5 overflow-y-auto overscroll-contain p-3" aria-live="polite">
         {messages.length === 0 && <p className="py-4 text-center text-sm text-zinc-500">Aucun message. Écris le premier.</p>}
         {messages.map((m, i) => {
           const mine = m.authorId === me;

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { NAV_LINKS, icon } from "./nav-links";
 
 const MORE = { href: "/plus", label: "Plus", icon: icon("M5 12h.01M12 12h.01M19 12h.01") };
@@ -9,6 +10,27 @@ const MORE = { href: "/plus", label: "Plus", icon: icon("M5 12h.01M12 12h.01M19 
 /** Navigation : barre en bas de l'écran sur mobile (zone du pouce), barre en haut sur grand écran. */
 export function AppNav() {
   const pathname = usePathname();
+
+  // iPhone (app installée) : après la fermeture du clavier ou le retour depuis une autre app, iOS garde
+  // parfois l'ancienne hauteur d'écran, et cette barre fixe reste au milieu. Un micro-défilement
+  // l'oblige à recalculer la position des éléments fixes.
+  useEffect(() => {
+    const nudge = () =>
+      setTimeout(() => {
+        const y = window.scrollY; // on revient exactement au même endroit (pas de dérive en bas de page)
+        window.scrollTo(window.scrollX, y + 1);
+        window.scrollTo(window.scrollX, y);
+      }, 100);
+    const onVisible = () => document.visibilityState === "visible" && nudge();
+    document.addEventListener("focusout", nudge);
+    document.addEventListener("visibilitychange", onVisible);
+    window.visualViewport?.addEventListener("resize", nudge);
+    return () => {
+      document.removeEventListener("focusout", nudge);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.visualViewport?.removeEventListener("resize", nudge);
+    };
+  }, []);
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   const moreActive = pathname === "/plus" || NAV_LINKS.some((l) => !l.mobile && isActive(l.href));
   const itemClass = (active: boolean) =>
