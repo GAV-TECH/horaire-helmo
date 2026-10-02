@@ -39,6 +39,9 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(data.title || "Horaire HELMO", {
       body: data.body || "",
       tag: data.tag, // même tag = remplace la notification précédente au lieu d'en empiler une nouvelle
+      // Sans renotify, une notification qui en remplace une autre (même tag) s'affiche en silence :
+      // le 2e message d'une discussion passerait inaperçu.
+      renotify: Boolean(data.tag),
       icon: "/icon-192.png",
       badge: "/icon-192.png",
       lang: "fr",
