@@ -141,9 +141,9 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
             : "Aucune tâche à faire.";
 
   return (
-    <div className="-mx-3 grid min-h-[calc(100dvh-8rem)] overflow-hidden border-zinc-200 bg-zinc-50 sm:-mx-6 md:mx-0 md:h-[calc(100dvh-7rem)] md:grid-cols-[15rem_minmax(0,1fr)_auto] md:rounded-xl md:border dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="-mx-3 grid min-h-[calc(100dvh-8rem)] overflow-hidden border-zinc-200 bg-zinc-50 sm:-mx-6 md:mx-0 md:h-[calc(100dvh-7rem)] md:grid-cols-[15rem_minmax(0,1fr)_auto] md:grid-rows-[minmax(0,1fr)] md:rounded-xl md:border dark:border-zinc-800 dark:bg-zinc-950">
       {/* ---------- Listes ---------- */}
-      <nav aria-label="Listes de tâches" className={`${screen === "lists" ? "flex" : "hidden"} flex-col gap-0.5 overflow-y-auto border-zinc-200 bg-zinc-100/70 p-2.5 md:flex md:border-r dark:border-zinc-800 dark:bg-zinc-900/40`}>
+      <nav aria-label="Listes de tâches" className={`${screen === "lists" ? "flex" : "hidden"} min-h-0 flex-col gap-0.5 overflow-y-auto border-zinc-200 bg-zinc-100/70 p-2.5 md:flex md:border-r dark:border-zinc-800 dark:bg-zinc-900/40`}>
         {SMART_VIEWS.filter((v) => v.id !== "seances" || hasSessionLists).map((v) => (
           <NavItem key={v.id} active={view === v.id} onClick={() => openView(v.id)} icon={v.icon} label={v.name} count={openCount(v.id)} />
         ))}
@@ -178,7 +178,7 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
       </nav>
 
       {/* ---------- Tâches ---------- */}
-      <section className={`${screen === "tasks" ? "flex" : "hidden"} min-w-0 flex-col md:flex`}>
+      <section className={`${screen === "tasks" ? "flex" : "hidden"} min-h-0 min-w-0 flex-col md:flex`}>
         <header className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pb-2 pt-4 md:px-6 md:pt-5">
           <button type="button" onClick={() => setScreen("lists")} className="w-full text-left text-sm text-blue-600 md:hidden">
             ‹ Listes
@@ -218,7 +218,8 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
           </p>
         )}
 
-        <div className="flex-1 overflow-y-auto px-4 pb-6 md:px-6">
+        {/* min-h-0 : sans lui, un enfant flex ne rétrécit pas sous son contenu et ne défile jamais */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 md:px-6">
           {open.length === 0 && <p className="py-10 text-center text-sm text-zinc-500">{emptyText}</p>}
           {sections.map((s) => (
             <div key={s.key}>
