@@ -77,7 +77,7 @@ export function TaskDetail(props: Props) {
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 no-scrollbar overflow-y-auto px-4 pb-4">
         <Section>
           <button type="button" onClick={onToggleMyDay} className={`w-full px-3 py-2.5 text-left text-sm ${inMyDay ? "text-blue-600 dark:text-blue-400" : ""}`}>
             ☀ {inMyDay ? "Dans Ma journée" : "Ajouter à Ma journée"}
