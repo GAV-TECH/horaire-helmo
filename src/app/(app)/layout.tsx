@@ -23,6 +23,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <PwaBootstrap />
         {/* Toujours actif : on peut rejoindre un groupe à tout moment sans recharger la page */}
         <RealtimeRefresher />
+        {/* App installée sur téléphone : la page passe SOUS l'heure et la batterie (viewport "cover").
+            Cette bande opaque, de la hauteur de la barre d'état, empêche le contenu qui défile de s'y mélanger. */}
+        <div aria-hidden className="fixed inset-x-0 top-0 z-30 h-[env(safe-area-inset-top)] bg-background" />
         <AppNav />
         <ShareRequests />
         {/* pb-24 : laisse la place à la barre de navigation fixée en bas sur mobile */}

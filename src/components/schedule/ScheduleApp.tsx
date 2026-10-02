@@ -192,10 +192,11 @@ export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, init
       )}
 
       {conflicts.length > 0 && (
-        <section className="rounded-md border border-red-400 bg-red-50 px-3 py-2 text-sm dark:bg-red-950/40" aria-label="Conflits d'horaire">
-          <p className="font-medium">
-            ⚠ {conflicts.length === 1 ? "1 conflit d'horaire" : `${conflicts.length} conflits d'horaire`} : des séances se chevauchent
-          </p>
+        // <details> : replié par défaut, pour ne pas repousser l'horaire hors de l'écran sur téléphone.
+        <details className="rounded-md border border-red-400 bg-red-50 px-3 py-2 text-sm dark:bg-red-950/40" aria-label="Conflits d'horaire">
+          <summary className="cursor-pointer font-medium">
+            ⚠ {conflicts.length === 1 ? "1 conflit d'horaire" : `${conflicts.length} conflits d'horaire`} (séances qui se chevauchent)
+          </summary>
           <ul className="mt-1 flex flex-col gap-1">
             {conflicts.slice(0, 6).map(([a, b]) => (
               <li key={`${a.key}|${b.key}`}>
@@ -213,7 +214,7 @@ export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, init
             ))}
             {conflicts.length > 6 && <li className="text-zinc-500">… et {conflicts.length - 6} autre(s)</li>}
           </ul>
-        </section>
+        </details>
       )}
 
       <nav className="flex flex-wrap items-center gap-2" aria-label="Navigation dans l'horaire">
@@ -250,7 +251,8 @@ export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, init
       {view === "week" && (
         <>
           <div className="md:hidden">
-            <DayList days={week} sessions={sessions} onSelectDay={openDay} showEmptyDays {...common} />
+            {/* Sur téléphone, la semaine en cours commence à aujourd'hui : pas de jours passés à faire défiler. */}
+            <DayList days={week.includes(today) ? week.filter((d) => d >= today) : week} sessions={sessions} onSelectDay={openDay} showEmptyDays {...common} />
           </div>
           <div className="hidden md:block">
             <TimeGrid days={week} sessions={sessions} onSelectDay={openDay} {...common} />
