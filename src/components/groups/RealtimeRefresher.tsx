@@ -15,6 +15,7 @@ const TABLES = [
   "todo_completions",
   "reminders",
   "task_shares",
+  "project_messages",
 ];
 
 /**

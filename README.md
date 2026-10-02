@@ -140,6 +140,10 @@ SQL Editor → *New query* → colle [`supabase/migrations/0005_projets.sql`](su
 
 SQL Editor → *New query* → colle [`supabase/migrations/0007_partage_taches.sql`](supabase/migrations/0007_partage_taches.sql) → **Run**. Ce script crée le partage d'étudiant à étudiant (table `task_shares`, recherche par nom, accord du destinataire) et autorise le partage des listes de séance. Ensuite : **Tâches** → **Toutes** → *Partager toutes mes tâches*, ou menu **⋯** d'une liste.
 
+## 11. Discussion dans les projets (à faire une fois)
+
+SQL Editor → *New query* → colle [`supabase/migrations/0008_discussion_projet.sql`](supabase/migrations/0008_discussion_projet.sql) → **Run**. Ensuite : **Projets** → ouvre un projet → *Discussion*, sous les tâches. Peuvent lire et écrire : le propriétaire, les membres du groupe du projet et les étudiants avec qui il est partagé.
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire

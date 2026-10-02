@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { TodoList } from "@/lib/data/types";
+import type { ProjectMessage, TodoList } from "@/lib/data/types";
 import { projectProgress } from "@/lib/projects";
+import { ProjectChat } from "./ProjectChat";
 import { flattenTasks, groupTasksByDay, sortTasks, splitOverdue } from "@/lib/tasks";
 import { dayKey } from "@/lib/time";
 import { SharedBadge } from "@/components/groups/share";
@@ -15,7 +16,7 @@ import { TaskRow } from "@/components/tasks/TaskRow";
 import { useTaskMutations } from "@/components/tasks/useTaskMutations";
 
 /** Page d'un projet : ses tâches (avec échéances et rappels), leur avancement, et le détail de la tâche ouverte. */
-export function ProjectView({ project: serverProject, now }: { project: TodoList; now: number }) {
+export function ProjectView({ project: serverProject, messages, now }: { project: TodoList; messages: ProjectMessage[] | null; now: number }) {
   const router = useRouter();
   const today = dayKey(now);
   const { groups } = useGroups();
@@ -130,6 +131,9 @@ export function ProjectView({ project: serverProject, now }: { project: TodoList
             {showDone && <ul className="flex flex-col gap-1.5">{done.map(row)}</ul>}
           </div>
         )}
+
+        {/* null = table absente (migration 0008 pas encore exécutée) : pas de discussion. */}
+        {messages && <ProjectChat projectId={project.id} messages={messages} />}
       </div>
 
       {selected && (

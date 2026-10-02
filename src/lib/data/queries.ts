@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionChanges, StoredSession } from "@/lib/ics/types";
-import type { Deadline, Group, Priority, Reminder, TaskShare, TodoItem, TodoList } from "./types";
+import type { Deadline, Group, Priority, ProjectMessage, Reminder, TaskShare, TodoItem, TodoList } from "./types";
 
 /*
  * Lecture des données. Avec le client "utilisateur" (createClient), le RLS filtre déjà ;
@@ -244,6 +244,26 @@ type ShareRow = {
   owner: { display_name: string } | null;
   recipient: { display_name: string } | null;
 };
+
+/**
+ * Les 200 derniers messages d'un projet, du plus ancien au plus récent.
+ * null = discussion indisponible (migration 0008 pas encore exécutée).
+ */
+export async function loadProjectMessages(supabase: SupabaseClient, listId: string): Promise<ProjectMessage[] | null> {
+  const { data, error } = await supabase
+    .from("project_messages")
+    .select("id, user_id, author_name, body, created_at")
+    .eq("list_id", listId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) {
+    console.error("[project_messages]", error.message);
+    return null;
+  }
+  return (data ?? [])
+    .map((m) => ({ id: m.id, authorId: m.user_id, authorName: m.author_name, body: m.body, createdAt: iso(m.created_at) }))
+    .reverse();
+}
 
 export async function loadProfile(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();
