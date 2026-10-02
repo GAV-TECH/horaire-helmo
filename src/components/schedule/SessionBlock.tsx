@@ -37,7 +37,7 @@ export function SessionBlock({ session, onSelect, variant, style }: Props) {
       type="button"
       onClick={() => onSelect(session)}
       style={{ borderLeftColor: color, backgroundColor: `${color}1f`, ...style }}
-      className={`${base} ${variant === "grid" ? "px-1.5 py-1 text-xs" : "w-full px-3 py-2 text-sm"} ${cancelled ? "opacity-60" : ""} ${changes.length ? "ring-2 ring-amber-500" : parsed.isEvaluation && !cancelled ? "ring-2 ring-red-500" : ""}`}
+      className={`${base} ${variant === "grid" ? "break-words px-1 py-0.5 text-[10px] hyphens-auto sm:px-1.5 sm:py-1 sm:text-xs" : "w-full px-3 py-2 text-sm"} ${cancelled ? "opacity-60" : ""} ${changes.length ? "ring-2 ring-amber-500" : parsed.isEvaluation && !cancelled ? "ring-2 ring-red-500" : ""}`}
       aria-label={`${parsed.course}, ${timeRange(session)}${room ? `, ${room}` : ""}${changes.map((c) => `, ${c.label}${c.detail ? ` (${c.detail})` : ""}`).join("")}`}
     >
       {changes.length > 0 && (
@@ -50,7 +50,16 @@ export function SessionBlock({ session, onSelect, variant, style }: Props) {
         </span>
       )}
       {parsed.isEvaluation && !cancelled && (
-        <span className="mb-0.5 inline-block rounded bg-red-600 px-1 text-[10px] font-bold uppercase tracking-wide text-white">Évaluation</span>
+        <span className="mb-0.5 inline-block rounded bg-red-600 px-1 text-[10px] font-bold uppercase tracking-wide text-white">
+          {variant === "grid" ? (
+            <>
+              <span className="sm:hidden">Éval</span>
+              <span className="hidden sm:inline">Évaluation</span>
+            </>
+          ) : (
+            "Évaluation"
+          )}
+        </span>
       )}
       <div className={`font-semibold leading-tight ${cancelled ? "line-through" : ""}`}>{parsed.course}</div>
       <div className="leading-tight text-zinc-600 dark:text-zinc-300">

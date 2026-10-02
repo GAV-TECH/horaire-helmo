@@ -40,12 +40,12 @@ export function TimeGrid({ days, sessions, deadlines, now, onSelect, onSelectDay
   const hours = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
   const today = dayKey(now);
   const hasTopRow = days.some((d) => allDay(d).length > 0 || deadlinesByDay.has(d));
-  const columns = { gridTemplateColumns: `3rem repeat(${days.length}, minmax(0, 1fr))` };
+  const columns = { gridTemplateColumns: `2.5rem repeat(${days.length}, minmax(0, 1fr))` }; // colonne des heures étroite : place pour 5 jours sur téléphone
 
   return (
     <div className="rounded-lg border border-zinc-200 dark:border-zinc-800">
       {/* En-têtes des jours (collants pendant le défilement) */}
-      <div className="sticky top-0 z-20 grid border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 md:top-12" style={columns}>
+      <div className="sticky top-[env(safe-area-inset-top)] z-20 grid border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 md:top-12" style={columns}>
         <div />
         {days.map((day) => (
           <button
@@ -53,7 +53,7 @@ export function TimeGrid({ days, sessions, deadlines, now, onSelect, onSelectDay
             type="button"
             disabled={!onSelectDay}
             onClick={() => onSelectDay?.(day)}
-            className={`py-2 text-center text-sm capitalize ${day === today ? "font-bold text-blue-600 dark:text-blue-400" : ""} ${onSelectDay ? "hover:bg-zinc-100 dark:hover:bg-zinc-900" : ""}`}
+            className={`py-2 text-center text-xs capitalize sm:text-sm ${day === today ? "font-bold text-blue-600 dark:text-blue-400" : ""} ${onSelectDay ? "hover:bg-zinc-100 dark:hover:bg-zinc-900" : ""}`}
           >
             {formatFr(fromDayKey(day), days.length > 1 ? "EEE d" : "EEEE d MMMM")}
           </button>
@@ -65,7 +65,7 @@ export function TimeGrid({ days, sessions, deadlines, now, onSelect, onSelectDay
         <div className="grid border-b border-zinc-200 dark:border-zinc-800" style={columns}>
           <div className="p-1 text-[10px] text-zinc-500">jour</div>
           {days.map((day) => (
-            <div key={day} className="flex min-w-0 flex-col gap-1 p-1">
+            <div key={day} className="flex min-w-0 flex-col gap-1 p-0.5 sm:p-1">
               {allDay(day).map((s) => (
                 <SessionBlock key={s.key} session={s} onSelect={onSelect} variant="grid" />
               ))}
@@ -109,8 +109,8 @@ export function TimeGrid({ days, sessions, deadlines, now, onSelect, onSelectDay
                     position: "absolute",
                     top,
                     height,
-                    left: `calc(${(lane / lanes) * 100}% + 2px)`,
-                    width: `calc(${100 / lanes}% - 4px)`,
+                    left: `calc(${(lane / lanes) * 100}% + 1px)`,
+                    width: `calc(${100 / lanes}% - 2px)`,
                   }}
                 />
               );

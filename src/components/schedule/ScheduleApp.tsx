@@ -248,17 +248,8 @@ export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, init
         <p className="w-full text-sm font-medium capitalize text-zinc-600 dark:text-zinc-400 sm:ml-auto sm:w-auto">{title}</p>
       </nav>
 
-      {view === "week" && (
-        <>
-          <div className="md:hidden">
-            {/* Sur téléphone, la semaine en cours commence à aujourd'hui : pas de jours passés à faire défiler. */}
-            <DayList days={week.includes(today) ? week.filter((d) => d >= today) : week} sessions={sessions} onSelectDay={openDay} showEmptyDays {...common} />
-          </div>
-          <div className="hidden md:block">
-            <TimeGrid days={week} sessions={sessions} onSelectDay={openDay} {...common} />
-          </div>
-        </>
-      )}
+      {/* Grille horaire aussi sur téléphone (colonnes étroites, texte réduit dans TimeGrid / SessionBlock). */}
+      {view === "week" && <TimeGrid days={week} sessions={sessions} onSelectDay={openDay} {...common} />}
       {view === "day" && <TimeGrid days={[anchor]} sessions={sessions} {...common} />}
       {view === "upcoming" && (
         <DayList
