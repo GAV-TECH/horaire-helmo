@@ -8,6 +8,7 @@ import { markChangesSeen } from "@/lib/actions/sessions";
 import type { Deadline, TodoList } from "@/lib/data/types";
 import type { StoredSession } from "@/lib/ics/types";
 import { attachToSessions } from "@/lib/sessions/attach";
+import { findConflicts } from "@/lib/sessions/conflicts";
 import { coursesFrom, parseCourseTitle, sameCourse } from "@/lib/courses";
 import type { SyncResult } from "@/lib/sync-types";
 import { dayKey, formatFr } from "@/lib/time";
@@ -15,7 +16,7 @@ import { buttonClass } from "@/components/ui";
 import { DayList } from "./DayList";
 import { ManualSessionForm } from "./ManualSessionForm";
 import { SessionDetail } from "./SessionDetail";
-import { unseenChanges } from "./SessionBlock";
+import { timeRange, unseenChanges } from "./SessionBlock";
 import { CHANGE_LEGEND } from "@/lib/sessions/changes";
 import { TimeGrid } from "./TimeGrid";
 
@@ -85,6 +86,8 @@ export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, init
   const openDeadlines = useMemo(() => deadlines.filter((d) => !d.doneAt), [deadlines]);
   const courses = useMemo(() => coursesFrom(sessions), [sessions]);
   const changed = sessions.filter((s) => unseenChanges(s).length > 0);
+  // Recalculé chaque minute avec `now` : un conflit disparaît quand la séance est finie.
+  const conflicts = useMemo(() => findConflicts(sessions, new Date(now).toISOString()), [sessions, now]);
   const today = dayKey(now);
 
   // Semaine : lundi → vendredi, plus le week-end seulement s'il contient des séances.
@@ -185,6 +188,31 @@ export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, init
               </span>
             ))}
           </p>
+        </section>
+      )}
+
+      {conflicts.length > 0 && (
+        <section className="rounded-md border border-red-400 bg-red-50 px-3 py-2 text-sm dark:bg-red-950/40" aria-label="Conflits d'horaire">
+          <p className="font-medium">
+            ⚠ {conflicts.length === 1 ? "1 conflit d'horaire" : `${conflicts.length} conflits d'horaire`} : des séances se chevauchent
+          </p>
+          <ul className="mt-1 flex flex-col gap-1">
+            {conflicts.slice(0, 6).map(([a, b]) => (
+              <li key={`${a.key}|${b.key}`}>
+                <span className="capitalize text-zinc-600 dark:text-zinc-400">{formatFr(a.start, "EEE d MMM")}</span>
+                {" — "}
+                {[a, b].map((x, i) => (
+                  <span key={x.key}>
+                    {i > 0 && " ↔ "}
+                    <button type="button" onClick={() => setSelectedKey(x.key)} className="text-left hover:underline">
+                      <span className="font-medium">{parseCourseTitle(x.title).course}</span> ({timeRange(x)})
+                    </button>
+                  </span>
+                ))}
+              </li>
+            ))}
+            {conflicts.length > 6 && <li className="text-zinc-500">… et {conflicts.length - 6} autre(s)</li>}
+          </ul>
         </section>
       )}
 
