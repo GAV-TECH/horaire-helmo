@@ -1,7 +1,7 @@
 /**
  * Edge Function Supabase "send-reminders" (Deno).
  * Appelée chaque minute par pg_cron (voir supabase/cron.sql) :
- * (elle envoie aussi le débrief du soir et les messages des discussions de projet)
+ * (elle envoie aussi le débrief du soir, les messages des discussions et les documents ajoutés aux projets)
  * 1. réserve les rappels arrivés à échéance (claim_due_reminders) : une ligne par destinataire
  *    (l'auteur, ou chaque membre du groupe pour un rappel partagé, sauf ceux qui l'ont coupé) ;
  * 2. envoie une notification Web Push à chaque appareil de l'utilisateur ;
@@ -10,7 +10,16 @@
  * Déploiement : voir README (npx supabase functions deploy send-reminders …).
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { buildDigest, buildMessageNotification, buildNotification, type DigestRow, type DueReminder, type MessageRow } from "./message.ts";
+import {
+  buildDigest,
+  buildLinkNotification,
+  buildMessageNotification,
+  buildNotification,
+  type DigestRow,
+  type DueReminder,
+  type LinkRow,
+  type MessageRow,
+} from "./message.ts";
 import { sendWebPush, type VapidKeys } from "./webpush.ts";
 
 /** Comparaison en temps constant : ne révèle pas, par la durée de réponse, combien de caractères sont justes. */
@@ -69,7 +78,13 @@ Deno.serve(async (req) => {
   const messages = (messageData ?? []) as MessageRow[];
   for (const message of messages) outbox.push({ userId: message.recipient_id, payload: JSON.stringify(buildMessageNotification(message)) });
 
-  if (outbox.length === 0) return Response.json({ claimed: 0, digests: 0, messages: 0, sent: 0 });
+  // Documents ajoutés à un projet (migration 0011). Fonction SQL absente : on l'ignore.
+  const { data: linkData, error: linkError } = await db.rpc("claim_link_notifications", { max_rows: 200 });
+  if (linkError) console.error("claim_link_notifications :", linkError.message);
+  const links = (linkData ?? []) as LinkRow[];
+  for (const link of links) outbox.push({ userId: link.recipient_id, payload: JSON.stringify(buildLinkNotification(link)) });
+
+  if (outbox.length === 0) return Response.json({ claimed: 0, digests: 0, messages: 0, links: 0, sent: 0 });
 
   const userIds = [...new Set(outbox.map((n) => n.userId))];
   const { data: subs, error: subsError } = await db
@@ -104,5 +119,5 @@ Deno.serve(async (req) => {
   }
 
   if (gone.size > 0) await db.from("push_subscriptions").delete().in("id", [...gone]);
-  return Response.json({ claimed: due.length, digests: digests.length, messages: messages.length, sent, failed, removed: gone.size });
+  return Response.json({ claimed: due.length, digests: digests.length, messages: messages.length, links: links.length, sent, failed, removed: gone.size });
 });

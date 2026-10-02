@@ -156,6 +156,8 @@ SQL Editor → *New query* → colle [`supabase/migrations/0009_documents_projet
    npx supabase functions deploy send-reminders --project-ref mlxgvpghjhqzfqsuekuw --no-verify-jwt --use-api
    ```
 
+Pour être aussi notifié quand un **document** est ajouté à un projet : exécute en plus [`supabase/migrations/0011_notifications_documents.sql`](supabase/migrations/0011_notifications_documents.sql) (après 0007 et 0009), puis redéploie la fonction.
+
 Chaque message d'une discussion de projet est notifié (en moins d'une minute) aux autres membres qui ont activé les notifications dans **Rappels**.
 
 ## Fonctionnement

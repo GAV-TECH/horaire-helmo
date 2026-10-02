@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDigest, buildNotification, formatRelative, formatWhen, type DigestRow, type DueReminder, buildMessageNotification } from "./message";
+import { buildDigest, buildNotification, formatRelative, formatWhen, type DigestRow, type DueReminder, buildMessageNotification, buildLinkNotification } from "./message";
 
 const NOW = new Date("2025-10-06T06:00:00Z"); // lundi 6 octobre, 08:00 à Bruxelles
 
@@ -93,5 +93,12 @@ describe("buildMessageNotification", () => {
     const body = buildMessageNotification({ ...m, body: "x".repeat(500) }).body;
     expect(body.length).toBe("Bob : ".length + 140);
     expect(body.endsWith("…")).toBe(true);
+  });
+});
+
+describe("buildLinkNotification", () => {
+  it("projet en titre, qui a ajouté quoi, lien vers le projet", () => {
+    const l = { link_id: "k1", recipient_id: "u2", list_id: "p1", project_title: "Pont", author_name: "Bob", title: "Rapport final" };
+    expect(buildLinkNotification(l)).toEqual({ title: "📎 Pont", body: "Bob a ajouté un document : Rapport final", url: "/projets/p1", tag: "document-k1" });
   });
 });

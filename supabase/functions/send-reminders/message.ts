@@ -152,3 +152,16 @@ export function buildMessageNotification(m: MessageRow): NotificationPayload {
     tag: `discussion-${m.list_id}`,
   };
 }
+
+/** Une ligne de claim_link_notifications : un document ajouté à un projet, pour un destinataire. */
+export type LinkRow = { link_id: string; recipient_id: string; list_id: string; project_title: string; author_name: string; title: string };
+
+/** Notification d'un document ajouté. Tag par document : deux ajouts ne se remplacent pas. */
+export function buildLinkNotification(l: LinkRow): NotificationPayload {
+  return {
+    title: `📎 ${l.project_title}`,
+    body: `${l.author_name} a ajouté un document : ${l.title}`,
+    url: `/projets/${l.list_id}`,
+    tag: `document-${l.link_id}`,
+  };
+}
