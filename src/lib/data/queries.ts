@@ -275,6 +275,16 @@ export async function loadProjectLinks(supabase: SupabaseClient, listId: string)
   return (data ?? []).map((l) => ({ id: l.id, authorId: l.user_id, title: l.title, url: l.url }));
 }
 
+/** Messages non lus par projet (id du projet → nombre). Vide si la migration 0014 n'est pas exécutée. */
+export async function loadUnreadCounts(supabase: SupabaseClient): Promise<Record<string, number>> {
+  const { data, error } = await supabase.rpc("unread_message_counts");
+  if (error) {
+    console.error("[unread_message_counts]", error.message);
+    return {};
+  }
+  return Object.fromEntries(((data ?? []) as { list_id: string; unread: number }[]).map((r) => [r.list_id, r.unread]));
+}
+
 export async function loadProfile(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();
   return { displayName: (data?.display_name as string | undefined) ?? "" };

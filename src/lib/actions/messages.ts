@@ -29,3 +29,14 @@ export async function deleteProjectMessage(id: string): Promise<ActionResult> {
   refresh();
   return ok();
 }
+
+/** Marque la discussion d'un projet comme lue (compteur de non lus). Pas de refresh : rien à réafficher ici. */
+export async function markProjectRead(listId: string): Promise<ActionResult> {
+  const { user, supabase } = await actionContext();
+  if (!idSchema.safeParse(listId).success) return fail("Projet invalide.");
+  const { error } = await supabase
+    .from("project_reads")
+    .upsert({ list_id: listId, user_id: user.id, last_read_at: new Date().toISOString() }, { onConflict: "list_id,user_id" });
+  if (error) return dbFail(error, "markProjectRead"); // ex. migration 0014 pas encore exécutée
+  return ok();
+}

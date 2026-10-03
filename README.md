@@ -164,6 +164,10 @@ Pour être notifié quand une **tâche** est ajoutée à une liste partagée (gr
 
 Chaque message d'une discussion de projet est notifié (en quelques secondes avec 0012, sinon en moins d'une minute) aux autres membres qui ont activé les notifications dans **Rappels**.
 
+## 14. Messages non lus (à faire une fois)
+
+SQL Editor → *New query* → colle [`supabase/migrations/0014_messages_non_lus.sql`](supabase/migrations/0014_messages_non_lus.sql) → **Run** (après 0008). Chaque carte de l'onglet **Projets** affiche alors le nombre de messages non lus de sa discussion.
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire

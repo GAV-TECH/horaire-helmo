@@ -12,7 +12,9 @@ import { ActionMessage, PageTitle, useFormAction } from "@/components/ui";
 import { buttonClass, inputClass } from "@/components/styles";
 
 /** Onglet Projets : un projet = une liste de tâches (avec échéances), éventuellement partagée avec un groupe. */
-export function ProjectsHome({ projects, courses, now }: { projects: TodoList[]; courses: Course[]; now: number }) {
+/** unread : messages non lus de la discussion, par id de projet. */
+export function ProjectsHome(props: { projects: TodoList[]; courses: Course[]; unread: Record<string, number>; now: number }) {
+  const { projects, courses, unread, now } = props;
   const router = useRouter();
   const [creating, setCreating] = useState(projects.length === 0);
   const create = useFormAction(async (prev, data) => {
@@ -64,7 +66,7 @@ export function ProjectsHome({ projects, courses, now }: { projects: TodoList[];
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sortProjects(projects).map((p) => (
             <li key={p.id}>
-              <ProjectCard project={p} now={now} />
+              <ProjectCard project={p} unread={unread[p.id] ?? 0} now={now} />
             </li>
           ))}
         </ul>
@@ -73,7 +75,7 @@ export function ProjectsHome({ projects, courses, now }: { projects: TodoList[];
   );
 }
 
-function ProjectCard({ project, now }: { project: TodoList; now: number }) {
+function ProjectCard({ project, unread, now }: { project: TodoList; unread: number; now: number }) {
   const { done, total, percent } = projectProgress(project);
   const next = nextDueTask(project);
   return (
@@ -82,7 +84,14 @@ function ProjectCard({ project, now }: { project: TodoList; now: number }) {
       className="flex h-full flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800/60"
     >
       <div>
-        <p className="font-semibold leading-snug">{project.title}</p>
+        <div className="flex items-start gap-2">
+          <p className="mr-auto font-semibold leading-snug">{project.title}</p>
+          {unread > 0 && (
+            <span className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white" aria-label={`${unread} message(s) non lu(s)`}>
+              💬 {unread > 99 ? "99+" : unread}
+            </span>
+          )}
+        </div>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-zinc-500">
           {project.courseName && <span>{project.courseName}</span>}
           <SharedBadge groupId={project.groupId} ownerId={project.ownerId} />
