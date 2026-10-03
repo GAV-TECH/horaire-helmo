@@ -83,6 +83,7 @@ export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, init
     [lists, sessions],
   );
 
+  const projects = useMemo(() => lists.filter((l) => l.scope === "project"), [lists]);
   const openDeadlines = useMemo(() => deadlines.filter((d) => !d.doneAt), [deadlines]);
   const courses = useMemo(() => coursesFrom(sessions), [sessions]);
   const changed = sessions.filter((s) => unseenChanges(s).length > 0);
@@ -265,7 +266,8 @@ export function ScheduleApp({ sessions, deadlines, lists, sync, initialDay, init
       {selected && (
         <SessionDetail
           session={selected}
-          tasks={(tasksBySession.get(selected.key) ?? []).flatMap((l) => l.items)}
+          taskLists={tasksBySession.get(selected.key) ?? []}
+          projects={projects}
           courseDeadlines={openDeadlines.filter((d) => sameCourse(d.courseName, selected.title) && Date.parse(d.dueAt) > now)}
           courses={courses}
           sessions={sessions}

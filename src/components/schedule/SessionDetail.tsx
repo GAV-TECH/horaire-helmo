@@ -6,20 +6,25 @@ import { deleteManualSession, markChangesSeen } from "@/lib/actions/sessions";
 import { isManualSession } from "@/lib/sessions/manual";
 import { addSessionTask } from "@/lib/actions/todos";
 import { courseColor, parseCourseTitle } from "@/lib/courses";
-import type { Course, Deadline, TodoItem } from "@/lib/data/types";
+import type { Course, Deadline, TodoList } from "@/lib/data/types";
 import type { StoredSession } from "@/lib/ics/types";
 import { formatFr, isoToBrusselsInputs } from "@/lib/time";
 import { DeadlineEditor } from "@/components/deadlines/DeadlineEditor";
 import { DeadlineRow } from "@/components/items/DeadlineRow";
 import { TodoItemRow } from "@/components/items/TodoItemRow";
+import { useGroups } from "@/components/groups/GroupsContext";
 import { ReminderControl } from "@/components/reminders/ReminderControl";
+import { ListMenu } from "@/components/tasks/ListHeader";
 import { ActionMessage, buttonClass, inputClass, useFormAction } from "@/components/ui";
 import { timeRange } from "./SessionBlock";
 import { describeChanges } from "@/lib/sessions/changes";
 
 type Props = {
   session: StoredSession;
-  tasks: TodoItem[];
+  /** Listes de tâches rattachées à cette séance (la mienne, et celles partagées avec moi). */
+  taskLists: TodoList[];
+  /** Mes projets : une tâche ajoutée ici peut aller directement dans l'un d'eux. */
+  projects: TodoList[];
   courseDeadlines: Deadline[];
   /** Pour le formulaire d'échéance : liste des cours et séances ("prochaine séance"). */
   courses: Course[];
@@ -29,7 +34,10 @@ type Props = {
 };
 
 /** Panneau de détail : feuille en bas de l'écran sur mobile, panneau latéral sur grand écran. */
-export function SessionDetail({ session, tasks, courseDeadlines, courses, sessions, now, onClose }: Props) {
+export function SessionDetail({ session, taskLists, projects, courseDeadlines, courses, sessions, now, onClose }: Props) {
+  const { me, shares } = useGroups();
+  const tasks = taskLists.flatMap((l) => l.items);
+  const myList = taskLists.find((l) => l.ownerId === me); // créée à ma première tâche sur cette séance
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -150,7 +158,18 @@ export function SessionDetail({ session, tasks, courseDeadlines, courses, sessio
               ))}
             </ul>
           )}
-          <SessionTaskForm session={session} />
+          <SessionTaskForm session={session} projects={projects} />
+          {/* Partage des tâches de la séance : avec un groupe ou un étudiant (même menu que dans Tâches). */}
+          {myList ? (
+            <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+              <span className="mr-auto">
+                {myList.groupId || shares.some((s) => s.listId === myList.id) ? "👥 Tâches de cette séance partagées" : "Partager les tâches de cette séance"}
+              </span>
+              <ListMenu list={myList} onDeleted={() => {}} />
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-zinc-500">Ajoute une première tâche pour pouvoir la partager avec un étudiant ou un groupe.</p>
+          )}
         </Section>
 
         {session.description && (
@@ -204,7 +223,7 @@ function ChangesBox({ session }: { session: StoredSession }) {
   );
 }
 
-function SessionTaskForm({ session }: { session: StoredSession }) {
+function SessionTaskForm({ session, projects }: { session: StoredSession; projects: TodoList[] }) {
   const { onSubmit, pending, result } = useFormAction(addSessionTask, { reset: true });
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-1">
@@ -213,6 +232,16 @@ function SessionTaskForm({ session }: { session: StoredSession }) {
       <input type="hidden" name="sessionStart" value={session.start} />
       {/* courseName reste l'intitulé complet (il sert à retrouver la séance) ; le nom de la liste est lisible. */}
       <input type="hidden" name="listTitle" value={`${parseCourseTitle(session.title).course} – ${formatFr(session.start, "d MMM")}`} />
+      {projects.length > 0 && (
+        <select name="projectId" defaultValue="" aria-label="Où ajouter la tâche" className={inputClass}>
+          <option value="">Dans cette séance</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              Dans le projet : {p.title}
+            </option>
+          ))}
+        </select>
+      )}
       <div className="flex gap-2">
         <input name="title" required maxLength={300} placeholder="Nouvelle tâche…" className={inputClass} aria-label="Nouvelle tâche" />
         <button type="submit" disabled={pending} className={buttonClass.primary}>

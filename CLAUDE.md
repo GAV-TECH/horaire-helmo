@@ -62,6 +62,7 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 - [x] Notification push quand une tâche est ajoutée à une liste partagée (migration 0013 : `todo_items.notified_at`, `claim_task_notifications()`, trigger `kick_send_reminders_for_task` seulement si la liste est partagée ; `buildTaskNotification`). Pas de notification pour une tâche modifiée ou cochée.
 - [x] Mobile (iPhone installé) : champs à 16px (pas de zoom automatique), micro-défilement après fermeture du clavier / retour dans l'app (`AppNav`) pour recaler la barre du bas, bande opaque sous la barre d'état. Non vérifié sur un vrai iPhone.
 - [x] Messages non lus (migration 0014 : `project_reads` = dernière lecture par étudiant, `unread_message_counts()` en security invoker) : pastille 💬 N sur les cartes de Projets ; `markProjectRead` appelé par `ProjectChat` à l'affichage. Discussion : pastille aux initiales + nom coloré par auteur (`courseColor(userId)`), « Moi » pour ses messages.
+- [x] Tâches ajoutées depuis une séance de l'horaire (`SessionDetail`) : menu ⋯ (`ListMenu`) pour partager la liste de la séance avec un groupe ou un étudiant ; choix « Dans le projet : X » dans le formulaire (`addSessionTask` avec `projectId` → tâche dans le projet, échéance = début de la séance).
 - [x] Débrief quotidien (migration 0006 : `user_settings`, `claim_daily_digests()` à l'heure de Bruxelles, une fois par jour) envoyé par l'Edge Function `send-reminders` (`buildDigest`) ; réglage dans Rappels.
 
 ## Pistes suivantes

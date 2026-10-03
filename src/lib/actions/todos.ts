@@ -42,6 +42,8 @@ const sessionTaskSchema = z.object({
   sessionKey: z.string().min(1).max(1000),
   sessionStart: z.iso.datetime({ offset: true }),
   listTitle: z.string().trim().min(1).max(200),
+  // Vide = tâche de la séance ; sinon id du projet qui reçoit la tâche.
+  projectId: idSchema.optional().or(z.literal("")),
 });
 
 /**
@@ -52,7 +54,20 @@ export async function addSessionTask(_prev: ActionResult | null, formData: FormD
   const { user, supabase } = await actionContext();
   const parsed = sessionTaskSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return fail(firstError(parsed.error));
-  const { title, courseName, sessionKey, sessionStart, listTitle } = parsed.data;
+  const { title, courseName, sessionKey, sessionStart, listTitle, projectId } = parsed.data;
+
+  // Dans un projet : la tâche rejoint le projet (partagé avec ses membres), datée du début de la séance.
+  // Le RLS ne renvoie le projet que s'il m'est visible ; on exige en plus que ce soit bien un projet.
+  if (projectId) {
+    const { data: project } = await supabase.from("todo_lists").select("id, title").eq("id", projectId).eq("scope", "project").maybeSingle();
+    if (!project) return fail("Projet introuvable.");
+    const { error } = await supabase
+      .from("todo_items")
+      .insert({ list_id: projectId, title, due_at: sessionStart, position: Date.now() % 2_000_000_000 });
+    if (error) return dbFail(error, "addSessionTask.project");
+    refresh();
+    return ok(`Ajoutée au projet « ${project.title as string} ».`);
+  }
 
   const { data: existing } = await supabase
     .from("todo_lists")
