@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDigest, buildNotification, formatRelative, formatWhen, type DigestRow, type DueReminder, buildMessageNotification, buildLinkNotification, buildTaskNotification } from "./message";
+import { buildDigest, buildNotification, formatRelative, formatWhen, type DigestRow, type DueReminder, buildMessageNotification, buildLinkNotification, buildTaskNotification, buildShareNotification } from "./message";
 
 const NOW = new Date("2025-10-06T06:00:00Z"); // lundi 6 octobre, 08:00 à Bruxelles
 
@@ -121,5 +121,24 @@ describe("buildTaskNotification", () => {
   it("liste en titre, qui a ajouté quoi ; s'ouvre sur Tâches, ou sur le projet", () => {
     expect(buildTaskNotification(t)).toEqual({ title: "☐ Courses", body: "Bob a ajouté une tâche : pain", url: "/taches", tag: "tache-i1" });
     expect(buildTaskNotification({ ...t, list_scope: "project" }).url).toBe("/projets/l1");
+  });
+});
+
+describe("buildShareNotification", () => {
+  it("copie d'une tâche reçue", () => {
+    expect(buildShareNotification({ kind: "offer", id: "o1", recipient_id: "u2", sender_name: "Alice", label: "lire chap. 4" })).toEqual({
+      title: "📝 Tâche reçue",
+      body: "Alice t'envoie une tâche : lire chap. 4",
+      url: "/taches",
+      tag: "copie-o1",
+    });
+  });
+  it("demande de partage", () => {
+    expect(buildShareNotification({ kind: "share", id: "s1", recipient_id: "u2", sender_name: "Alice", label: "toutes ses tâches" })).toEqual({
+      title: "👥 Demande de partage",
+      body: "Alice veut partager toutes ses tâches avec toi",
+      url: "/taches",
+      tag: "partage-s1",
+    });
   });
 });

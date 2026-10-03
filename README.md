@@ -182,6 +182,13 @@ SQL Editor → *New query* → colle [`supabase/migrations/0015_copie_tache.sql`
 
 Le débrief (heure réglée une fois dans **Rappels**, puis envoyé chaque jour) liste les tâches à faire pour demain, les cours et échéances de demain, le bilan d'aujourd'hui, les messages non lus et les tâches reçues.
 
+## 17. Notifications des partages reçus (à faire une fois)
+
+1. SQL Editor → *New query* → colle [`supabase/migrations/0017_notifications_partage.sql`](supabase/migrations/0017_notifications_partage.sql) → **Run** (après 0007 et 0015).
+2. Redéploie la fonction d'envoi (même commande que ci-dessus).
+
+Notification immédiate quand un étudiant t'envoie la copie d'une tâche, ou te demande de partager une liste / toutes ses tâches.
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire

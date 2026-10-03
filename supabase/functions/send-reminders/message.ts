@@ -218,3 +218,13 @@ export function buildTaskNotification(t: TaskRow): NotificationPayload {
     tag: `tache-${t.item_id}`,
   };
 }
+
+/** Une ligne de claim_share_notifications : copie d'une tâche reçue ("offer") ou demande de partage ("share"). */
+export type ShareRow = { kind: "offer" | "share"; id: string; recipient_id: string; sender_name: string; label: string };
+
+/** Notification d'un partage reçu. Dans les deux cas, la réponse se donne dans le bandeau en haut de l'app. */
+export function buildShareNotification(s: ShareRow): NotificationPayload {
+  return s.kind === "offer"
+    ? { title: "📝 Tâche reçue", body: `${s.sender_name} t'envoie une tâche : ${s.label}`, url: "/taches", tag: `copie-${s.id}` }
+    : { title: "👥 Demande de partage", body: `${s.sender_name} veut partager ${s.label} avec toi`, url: "/taches", tag: `partage-${s.id}` };
+}
