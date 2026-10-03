@@ -22,6 +22,7 @@ import {
   type DueReminder,
   type LinkRow,
   type MessageRow,
+  type ProjectNews,
   type ShareRow,
   type TaskRow,
 } from "./message.ts";
@@ -75,7 +76,20 @@ Deno.serve(async (req) => {
   const { data: digestData, error: digestError } = await db.rpc("claim_daily_digests");
   if (digestError) console.error("claim_daily_digests :", digestError.message);
   const digests = (digestData ?? []) as DigestRow[];
-  for (const digest of digests) outbox.push({ userId: digest.user_id, payload: JSON.stringify(buildDigest(digest, now)) });
+  if (digests.length > 0) {
+    // Projets où il y a du nouveau + trace du débrief dans l'app (migration 0018). Absente : débrief sans projets ni trace.
+    const { data: newsData, error: newsError } = await db.rpc("digest_project_news", { uids: digests.map((d) => d.user_id) });
+    if (newsError) console.error("digest_project_news :", newsError.message);
+    const news = (newsData ?? []) as ProjectNews[];
+    const log = digests.map((digest) => {
+      const projects = news.filter((n) => n.user_id === digest.user_id);
+      const notification = buildDigest(digest, now, projects);
+      outbox.push({ userId: digest.user_id, payload: JSON.stringify(notification) });
+      return { user_id: digest.user_id, body: notification.body, projects: projects.map(({ list_id, title, messages, links }) => ({ list_id, title, messages, links })) };
+    });
+    const { error: logError } = await db.from("digest_log").upsert(log, { onConflict: "user_id,day" });
+    if (logError) console.error("digest_log :", logError.message);
+  }
 
   // Messages des discussions de projet (migration 0010). Fonction SQL absente : on l'ignore.
   const { data: messageData, error: messageError } = await db.rpc("claim_message_notifications", { max_rows: 200 });

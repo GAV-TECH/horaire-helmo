@@ -189,6 +189,13 @@ Le débrief (heure réglée une fois dans **Rappels**, puis envoyé chaque jour)
 
 Notification immédiate quand un étudiant t'envoie la copie d'une tâche, ou te demande de partager une liste / toutes ses tâches.
 
+## 18. Récap quotidien gardé dans l'app (à faire une fois)
+
+1. SQL Editor → *New query* → colle [`supabase/migrations/0018_recap_quotidien.sql`](supabase/migrations/0018_recap_quotidien.sql) → **Run** (après 0008, 0009 et 0014).
+2. Redéploie la fonction d'envoi (même commande que ci-dessus).
+
+Chaque débrief envoyé est enregistré : la page **Rappels** affiche les 7 derniers (tâches pour demain, projets avec de nouveaux messages ou documents, avec un lien vers chaque projet). Toucher la notification ouvre cette page.
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire

@@ -53,10 +53,18 @@ describe("buildDigest", () => {
         "Nouveau : 5 messages non lus · 2 tâches reçues",
         "Évaluation de Thermodynamique dans 3 jours",
       ].join("\n"),
-      url: "/taches",
+      url: "/rappels",
       tag: "debrief",
       sticky: true,
     });
+  });
+
+  it("nomme les projets où il y a du nouveau", () => {
+    const projects = [
+      { user_id: "u", list_id: "p1", title: "Pont", messages: 3, links: 1 },
+      { user_id: "u", list_id: "p2", title: "Labo", messages: 0, links: 2 },
+    ];
+    expect(buildDigest(row({ unread_messages: 3 }), evening, projects).body).toContain("Nouveau : 3 messages non lus\n• Pont : 3 messages · 1 document\n• Labo : 2 documents\nÉvaluation");
   });
 
   it("n'écrit que 5 titres et résume le reste", () => {

@@ -87,6 +87,9 @@ export type DigestRow = {
   pending_offers?: number | null;
 };
 
+/** Une ligne de digest_project_news (migration 0018) : un projet où il y a du nouveau venant des autres. */
+export type ProjectNews = { user_id: string; list_id: string; title: string; messages: number; links: number };
+
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? "s" : ""}`;
 
 /** "Thermodynamique - évaluation / KELNER / 413 (CO)" → "Thermodynamique". */
@@ -100,9 +103,10 @@ const DIGEST_TITLES = 5;
 /**
  * Débrief quotidien, dans l'ordre d'utilité : ce qui attend DEMAIN (cours, liste des tâches,
  * échéances), puis le bilan d'AUJOURD'HUI (fait / en attente), ce qui est arrivé de NOUVEAU
- * (messages non lus, tâches reçues) et la prochaine évaluation.
+ * (messages non lus, tâches reçues, projets qui ont bougé) et la prochaine évaluation.
+ * Le même texte est enregistré dans digest_log : la notification ouvre la page Rappels, où il reste lisible.
  */
-export function buildDigest(d: DigestRow, now: Date): NotificationPayload {
+export function buildDigest(d: DigestRow, now: Date, projects: ProjectNews[] = []): NotificationPayload {
   const lines: string[] = [];
   lines.push(
     d.tomorrow_sessions > 0 && d.tomorrow_first
@@ -134,11 +138,15 @@ export function buildDigest(d: DigestRow, now: Date): NotificationPayload {
     received > 0 ? `${received} tâche${received > 1 ? "s" : ""} reçue${received > 1 ? "s" : ""}` : null,
   ].filter(Boolean);
   if (news.length) lines.push(`Nouveau : ${news.join(" · ")}`);
+  for (const p of projects.slice(0, DIGEST_TITLES)) {
+    const parts = [p.messages > 0 ? plural(p.messages, "message") : null, p.links > 0 ? plural(p.links, "document") : null].filter(Boolean);
+    lines.push(`• ${p.title} : ${parts.join(" · ")}`);
+  }
 
   if (d.next_eval_title && d.next_eval_at) {
     lines.push(`Évaluation de ${courseOf(d.next_eval_title)} ${formatRelative(new Date(d.next_eval_at), now)}`);
   }
-  return { title: "📋 Débrief du jour", body: lines.join("\n"), url: "/taches", tag: "debrief", sticky: true };
+  return { title: "📋 Débrief du jour", body: lines.join("\n"), url: "/rappels", tag: "debrief", sticky: true };
 }
 
 /** Construit la notification, ou null s'il ne faut rien envoyer (cible faite/annulée, rappel trop ancien). */
