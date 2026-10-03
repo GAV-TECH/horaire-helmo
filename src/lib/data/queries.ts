@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionChanges, StoredSession } from "@/lib/ics/types";
-import type { Deadline, Group, Priority, ProjectLink, ProjectMessage, Reminder, TaskShare, TodoItem, TodoList } from "./types";
+import type { Deadline, Group, Priority, ProjectLink, ProjectMessage, Reminder, TaskOffer, TaskShare, TodoItem, TodoList } from "./types";
 
 /*
  * Lecture des données. Avec le client "utilisateur" (createClient), le RLS filtre déjà ;
@@ -283,6 +283,24 @@ export async function loadUnreadCounts(supabase: SupabaseClient): Promise<Record
     return {};
   }
   return Object.fromEntries(((data ?? []) as { list_id: string; unread: number }[]).map((r) => [r.list_id, r.unread]));
+}
+
+/** Copies de tâches proposées (reçues et envoyées). Vide si la migration 0015 n'est pas exécutée. */
+export async function loadTaskOffers(supabase: SupabaseClient): Promise<TaskOffer[]> {
+  const { data, error } = await supabase.from("task_offers").select("id, sender_id, sender_name, recipient_id, title, due_at, context").order("created_at");
+  if (error) {
+    console.error("[task_offers]", error.message);
+    return [];
+  }
+  return (data ?? []).map((o) => ({
+    id: o.id,
+    senderId: o.sender_id,
+    senderName: o.sender_name,
+    recipientId: o.recipient_id,
+    title: o.title,
+    dueAt: isoOrNull(o.due_at),
+    context: o.context,
+  }));
 }
 
 export async function loadProfile(supabase: SupabaseClient, userId: string) {

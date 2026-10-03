@@ -17,6 +17,7 @@ const TABLES = [
   "task_shares",
   "project_messages",
   "project_links",
+  "task_offers",
 ];
 
 /**

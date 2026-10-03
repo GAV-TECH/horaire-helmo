@@ -102,6 +102,17 @@ export type ProjectMessage = { id: string; authorId: string; authorName: string;
 /** Document partagé d'un projet : un lien vers un fichier en ligne. */
 export type ProjectLink = { id: string; authorId: string; title: string; url: string };
 
+/** Copie d'une tâche proposée par un autre étudiant (table task_offers) : à ajouter à ses tâches, ou à refuser. */
+export type TaskOffer = {
+  id: string;
+  senderId: string;
+  senderName: string;
+  recipientId: string;
+  title: string;
+  dueAt: string | null;
+  context: string | null;
+};
+
 /** Un étudiant trouvé par la recherche (adresse masquée : « gi…@gmail.com »). */
 export type StudentHit = { id: string; displayName: string; emailHint: string };
 

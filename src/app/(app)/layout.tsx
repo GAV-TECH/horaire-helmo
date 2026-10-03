@@ -5,20 +5,21 @@ import { PwaBootstrap } from "@/components/pwa/PwaBootstrap";
 import { ShareRequests } from "@/components/tasks/ShareRequests";
 import { RemindersProvider } from "@/components/reminders/RemindersContext";
 import { requireUser } from "@/lib/auth";
-import { loadGroups, loadReminders, loadTaskShares } from "@/lib/data/queries";
+import { loadGroups, loadReminders, loadTaskOffers, loadTaskShares } from "@/lib/data/queries";
 import { requestNow } from "@/lib/request-time";
 
 /** Toutes les pages de ce groupe exigent d'être connecté. */
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const { user, supabase } = await requireUser();
-  const [reminders, groups, shares, now] = await Promise.all([
+  const [reminders, groups, shares, offers, now] = await Promise.all([
     loadReminders(supabase),
     loadGroups(supabase, user.id),
     loadTaskShares(supabase),
+    loadTaskOffers(supabase),
     requestNow(),
   ]);
   return (
-    <GroupsProvider me={user.id} groups={groups} shares={shares}>
+    <GroupsProvider me={user.id} groups={groups} shares={shares} offers={offers}>
       <RemindersProvider reminders={reminders} now={now}>
         <PwaBootstrap />
         {/* Toujours actif : on peut rejoindre un groupe à tout moment sans recharger la page */}

@@ -81,3 +81,54 @@ export async function removeTaskShare(shareId: string): Promise<ActionResult> {
   revalidateShares();
   return ok("Partage arrêté.");
 }
+
+/*
+ * Copie d'une tâche envoyée à un étudiant (table task_offers, migration 0015). Contrairement au
+ * partage, il reçoit SA propre tâche, indépendante : il l'ajoute à ses tâches ou la refuse.
+ */
+
+/** Propose à un étudiant une copie d'une de mes tâches (ou d'une tâche partagée avec moi). */
+export async function sendTaskCopy(itemId: string, recipientId: string): Promise<ActionResult> {
+  const { user, supabase } = await actionContext();
+  if (!idSchema.safeParse(itemId).success) return fail("Tâche invalide.");
+  if (!idSchema.safeParse(recipientId).success) return fail("Étudiant invalide.");
+  if (recipientId === user.id) return fail("Tu ne peux pas t'envoyer une tâche à toi-même.");
+
+  // Le RLS ne renvoie la tâche que si elle m'est visible. On relit titre et date côté serveur :
+  // le navigateur n'envoie que des identifiants.
+  const { data: item } = await supabase.from("todo_items").select("title, due_at, todo_lists(title, scope, session_start)").eq("id", itemId).maybeSingle();
+  if (!item) return fail("Tâche introuvable.");
+  const list = item.todo_lists as unknown as { title: string; scope: string; session_start: string | null } | null;
+  const { error } = await supabase.from("task_offers").insert({
+    recipient_id: recipientId,
+    title: item.title,
+    // Tâche de séance sans échéance : la copie prend la date de la séance (comme dans la page Tâches).
+    due_at: item.due_at ?? (list?.scope === "session" ? list.session_start : null),
+    context: list?.title?.slice(0, 300) ?? null,
+  });
+  if (error?.code === "P0001") return fail(error.message); // message du garde-fou anti-spam
+  if (error) return dbFail(error, "sendTaskCopy");
+  revalidateShares();
+  return ok("Copie envoyée : il la verra en ouvrant l'app et pourra l'ajouter à ses tâches.");
+}
+
+/** Le destinataire ajoute la copie à sa liste « Tâches » (fonction SQL : copie + suppression de la proposition). */
+export async function acceptTaskOffer(offerId: string): Promise<ActionResult> {
+  const { supabase } = await actionContext();
+  if (!idSchema.safeParse(offerId).success) return fail("Proposition invalide.");
+  const { error } = await supabase.rpc("accept_task_offer", { offer: offerId });
+  if (error?.code === "P0001") return fail(error.message);
+  if (error) return dbFail(error, "acceptTaskOffer");
+  revalidateShares();
+  return ok("Tâche ajoutée à ta liste « Tâches ».");
+}
+
+/** Refuser une copie reçue, ou annuler une copie envoyée. */
+export async function removeTaskOffer(offerId: string): Promise<ActionResult> {
+  const { supabase } = await actionContext();
+  if (!idSchema.safeParse(offerId).success) return fail("Proposition invalide.");
+  const { error } = await supabase.from("task_offers").delete().eq("id", offerId);
+  if (error) return dbFail(error, "removeTaskOffer");
+  revalidateShares();
+  return ok();
+}

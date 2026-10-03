@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import type { ActionResult } from "@/lib/actions/context";
-import { removeTaskShare, requestTaskShare, searchStudents } from "@/lib/actions/shares";
-import type { StudentHit } from "@/lib/data/types";
+import { removeTaskShare, requestTaskShare } from "@/lib/actions/shares";
 import { useGroups } from "@/components/groups/GroupsContext";
-import { buttonClass, inputClass } from "@/components/styles";
+import { buttonClass } from "@/components/styles";
+import { StudentSearch } from "./StudentSearch";
 
 /**
  * Partager avec un étudiant : on tape son nom, des suggestions apparaissent, on en choisit une ; une demande
@@ -14,84 +14,24 @@ import { buttonClass, inputClass } from "@/components/styles";
  */
 export function StudentShare({ listId }: { listId: string | null }) {
   const { me, shares } = useGroups();
-  const [query, setQuery] = useState("");
-  const [hits, setHits] = useState<StudentHit[] | null>(null);
   const [message, setMessage] = useState<ActionResult | null>(null);
   const [pending, startTransition] = useTransition();
   const outgoing = shares.filter((s) => s.ownerId === me && s.listId === listId);
 
-  // Suggestions pendant la frappe : on attend 300 ms après la dernière touche, et on ignore
-  // une réponse arrivée après une frappe plus récente (latest).
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const latest = useRef("");
-  const search = (text: string) => {
-    latest.current = text;
-    clearTimeout(timer.current);
-    if (text.trim().length < 2) {
-      setHits(null);
-      return;
-    }
-    timer.current = setTimeout(async () => {
-      const r = await searchStudents(text);
-      if (latest.current !== text) return;
-      setMessage(r.ok ? null : { ok: false, error: r.error });
-      setHits(r.ok ? r.students : null);
-    }, 300);
-  };
-  useEffect(() => () => clearTimeout(timer.current), []);
-
-  const run = (fn: () => Promise<ActionResult>, after?: () => void) =>
+  const run = (fn: () => Promise<ActionResult>) =>
     startTransition(async () => {
-      const r = await fn();
-      setMessage(r);
-      if (r.ok) after?.();
+      setMessage(await fn());
     });
+  const invite = async (recipientId: string) => {
+    const r = await requestTaskShare(recipientId, listId ?? "");
+    setMessage(r);
+    return r.ok;
+  };
+  const invited = (id: string) => outgoing.some((s) => s.recipientId === id);
 
   return (
     <div className="flex flex-col gap-2 text-sm">
-      <input
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          search(e.target.value);
-        }}
-        maxLength={60}
-        placeholder="Nom de l'étudiant (2 lettres minimum)"
-        aria-label="Nom de l'étudiant"
-        autoComplete="off"
-        className={inputClass}
-      />
-
-      {hits && hits.length === 0 && <p className="text-xs text-zinc-500">Aucun étudiant trouvé. Il doit avoir un compte sur l&apos;app.</p>}
-      {hits && hits.length > 0 && (
-        <ul className="flex flex-col gap-1">
-          {hits.map((h) => {
-            const already = outgoing.some((s) => s.recipientId === h.id);
-            return (
-              <li key={h.id} className="flex items-center gap-2 rounded-md bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/60">
-                <span className="min-w-0 flex-1 truncate">
-                  {h.displayName} <span className="text-xs text-zinc-500">{h.emailHint}</span>
-                </span>
-                <button
-                  type="button"
-                  disabled={pending || already}
-                  onClick={() =>
-                    run(
-                      () => requestTaskShare(h.id, listId ?? ""),
-                      () => {
-                        setHits(null);
-                        setQuery("");
-                      },
-                    )}
-                  className={buttonClass.primary}
-                >
-                  {already ? "Déjà invité" : "Inviter"}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <StudentSearch label={(h) => (invited(h.id) ? "Déjà invité" : "Inviter")} disabled={(h) => invited(h.id)} pending={pending} onPick={(h) => invite(h.id)} />
 
       {outgoing.length > 0 && (
         <ul className="flex flex-col gap-1">
