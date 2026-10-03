@@ -10,7 +10,7 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 - Supabase Cloud : auth e-mail + mot de passe, Postgres + RLS (`@supabase/ssr`, `getClaims()` côté serveur). SQL dans `supabase/migrations/`, exécuté à la main dans le SQL Editor (pas de CLI).
 - `ical.js` (serveur), `date-fns` v4 + `@date-fns/tz`, `zod` v4, `react-markdown`, Vitest.
 - Supabase Edge Function (Deno) `supabase/functions/send-reminders`, déployée avec `npx supabase functions deploy … --use-api` (pas de Docker). Son `index.ts` est exclu de tsc (globaux Deno) ; `webpush.ts` et `message.ts` sont du TS standard, testés par Vitest.
-- À venir : Realtime pour les groupes. Hébergement prévu : Vercel.
+- En production sur Vercel : https://horaire-helmo.vercel.app (région `fra1`, déploiement automatique à chaque push sur `master`). Dépôt : `GAV-TECH/horaire-helmo`.
 - Projet Supabase : ref `mlxgvpghjhqzfqsuekuw`. Secrets locaux dans `.env.local` (ne jamais les afficher) ; `npm run setup:push` génère VAPID + CRON_SECRET et les fichiers ignorés `supabase/.env.functions`, `supabase/cron.local.sql`.
 
 ## Commandes
@@ -68,8 +68,26 @@ Application web pour étudiants HELMO : import de l'horaire personnel (flux `.ic
 - [x] Débrief complet (migration 0016, remplace `claim_daily_digests`) : `tomorrow_titles`, `unread_messages`, `new_tasks`, `pending_offers` ; listes partagées par `task_shares` prises en compte ; tâche de séance sans échéance datée par sa séance. `buildDigest` : demain d'abord (cours, liste de 5 titres, échéances), puis aujourd'hui, nouveautés, évaluation ; `sticky` → `requireInteraction` dans `sw.js`.
 - [x] Débrief quotidien (migration 0006 : `user_settings`, `claim_daily_digests()` à l'heure de Bruxelles, une fois par jour) envoyé par l'Edge Function `send-reminders` (`buildDigest`) ; réglage dans Rappels.
 
+## Façon de travailler (à respecter dans une nouvelle conversation)
+
+- L'utilisateur écrit en français, souvent avec des fautes de frappe (touche « i » capricieuse) : deviner l'intention. Réponses brèves, étapes numérotées, sans jargon inutile.
+- Chaque fonctionnalité : code + tests → `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` → commit → `git push` (Vercel déploie). Ajouter les fichiers par chemin (`git add src supabase/migrations/…`), **jamais `git add -A`** : `supabase/.temp/cli-latest` est modifié par la CLI et ne doit pas être commité.
+- SQL : une migration numérotée, **relançable**, exécutée à la main par l'utilisateur dans le SQL Editor. La tester d'abord dans PGlite (script jetable hors du dépôt : rôles `anon` / `authenticated` / `service_role`, faux `auth.uid()`, faux `net.http_post` et `vault.decrypted_secrets`). Toujours dire à l'utilisateur quels fichiers exécuter et dans quel ordre.
+- Edge Function modifiée → l'utilisateur doit la redéployer lui-même : `npx supabase functions deploy send-reminders --project-ref mlxgvpghjhqzfqsuekuw --no-verify-jwt --use-api` (depuis `C:\Users\gille\dev\horaire-helmo`).
+- Éditer les fichiers avec les outils d'édition (ou un script Python écrit dans un fichier), pas avec des « heredocs » shell : les accents graves du TypeScript / Markdown et les `$$` du SQL y sont interprétés.
+- Diagnostic en production : script Node en LECTURE SEULE avec la clé de `.env.local`, qui n'affiche que des compteurs et des dates (jamais de secret, de nom ni de contenu).
+- Notifications push : tout passe par `send-reminders` (cron chaque minute + triggers `kick_send_reminders*` pour l'envoi immédiat). Schéma répété : colonne `notified_at`, fonction `claim_*_notifications()` (service_role, `for update skip locked`, rien au-delà de 10 minutes), constructeur pur `build*Notification` testé dans `message.test.ts`.
+
+## État au 3 octobre 2026
+
+- Migrations écrites : 0001 → 0017. Constaté sur la base de production : jusqu'à 0015 au moins. **À confirmer avec l'utilisateur : 0016 (débrief complet) et 0017 (notifications de partage), puis redéploiement de `send-reminders`** — sans lui, le débrief garde l'ancien format et les notifications de partage, de documents et de tâches ne partent pas.
+- Conseillé et pas encore fait : changer la `SUPABASE_SECRET_KEY` (elle a été visible dans une sélection de l'éditeur), puis la mettre à jour dans `.env.local` et dans Vercel.
+- Non vérifié sur un vrai iPhone : barre de navigation du bas après fermeture du clavier, vue Semaine en grille.
+- Signalé par l'utilisateur, cause non trouvée : « les conflits d'horaire ne se mettent pas à jour » (lui demander le cas précis : ajout d'une plage, suppression, ou changement côté HELMO).
+
 ## Pistes suivantes
 
-- Déploiement Vercel (push sur téléphone, accès pour les camarades) + mettre à jour Site URL / Redirect URLs dans Supabase.
-- SMTP (Resend) pour les e-mails de confirmation des autres étudiants, puis modèles d'e-mail `token_hash`.
-- Couleurs de cours personnalisables, mode hors ligne.
+- Notification à l'expéditeur quand un partage ou une copie de tâche est accepté / refusé.
+- Couper les notifications d'un projet ; compteur de non lus sur l'onglet Projets de la barre de navigation.
+- Plages personnelles : modification, répétition hebdomadaire. Bouton « ignorer ce conflit ».
+- SMTP (Resend) si Gmail ne suffit plus ; couleurs de cours personnalisables ; mode hors ligne.
