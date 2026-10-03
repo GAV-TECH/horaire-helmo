@@ -6,7 +6,7 @@ import { saveDigestSettings } from "@/lib/actions/digest";
 import { ActionMessage } from "@/components/ui";
 import { cardClass, inputClass } from "@/components/styles";
 
-/** Réglage du débrief quotidien : une notification le soir avec le bilan du jour et le programme de demain. */
+/** Réglage du débrief quotidien : une notification par jour (programme de demain, bilan du jour, nouveautés), à heure fixe. */
 export function DigestSettings({ enabled: initialEnabled, hour: initialHour }: { enabled: boolean; hour: number }) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [hour, setHour] = useState(initialHour);
@@ -23,7 +23,8 @@ export function DigestSettings({ enabled: initialEnabled, hour: initialHour }: {
     <section className={cardClass}>
       <h2 className="mb-1 font-semibold">Débrief quotidien</h2>
       <p className="mb-3 text-sm text-zinc-500">
-        Chaque jour, une notification : tâches faites, ce qui reste, les cours, tâches et échéances de demain, et la prochaine évaluation.
+        Une notification par jour, à l&apos;heure choisie : la liste des tâches à faire pour demain, les cours et échéances de demain, le bilan d&apos;aujourd&apos;hui,
+        les nouveaux messages et les tâches reçues. Tu règles l&apos;heure une fois, elle arrive ensuite tous les jours.
       </p>
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <label className="flex items-center gap-2">

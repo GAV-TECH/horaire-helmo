@@ -38,25 +38,38 @@ describe("buildDigest", () => {
     ...over,
   });
 
-  it("résume la journée et prépare demain", () => {
-    expect(buildDigest(row(), evening)).toEqual({
-      title: "Débrief de ta journée",
+  it("prépare demain (liste des tâches), résume aujourd'hui et signale le nouveau", () => {
+    const d = row({ tomorrow_titles: ["Lire le chapitre 4", "Rendre le rapport", "Plan du pont"], unread_messages: 5, new_tasks: 1, pending_offers: 1 });
+    expect(buildDigest(d, evening)).toEqual({
+      title: "📋 Débrief du jour",
       body: [
-        "✓ 5 tâches faites aujourd'hui",
-        "2 encore à faire",
         "Demain : 4 cours dès 08:15",
-        "Pour demain : 3 tâches et 1 échéance",
+        "À faire pour demain (3) :",
+        "• Lire le chapitre 4",
+        "• Rendre le rapport",
+        "• Plan du pont",
+        "1 échéance demain",
+        "Aujourd'hui : ✓ 5 faites · 2 en attente",
+        "Nouveau : 5 messages non lus · 2 tâches reçues",
         "Évaluation de Thermodynamique dans 3 jours",
       ].join("\n"),
       url: "/taches",
       tag: "debrief",
+      sticky: true,
     });
   });
 
-  it("reste lisible les jours calmes", () => {
-    const body = buildDigest(row({ done_today: 0, left_today: 0, tomorrow_tasks: 0, tomorrow_deadlines: 0, tomorrow_sessions: 0, tomorrow_first: null, next_eval_title: null, next_eval_at: null }), evening).body;
-    expect(body).toBe("Aucune tâche cochée aujourd'hui\nDemain : pas de cours");
-    expect(buildDigest(row({ done_today: 1, tomorrow_sessions: 1 }), evening).body).toContain("✓ 1 tâche faite aujourd'hui\n2 encore à faire\nDemain : 1 cours dès 08:15");
+  it("n'écrit que 5 titres et résume le reste", () => {
+    const titles = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const body = buildDigest(row({ tomorrow_tasks: 9, tomorrow_titles: titles }), evening).body;
+    expect(body).toContain("À faire pour demain (9) :\n• a\n• b\n• c\n• d\n• e\n… et 4 autres");
+    expect(body).not.toContain("• f");
+  });
+
+  it("reste lisible les jours calmes, et sans la migration 0016 (pas de titres)", () => {
+    const calm = row({ done_today: 0, left_today: 0, tomorrow_tasks: 0, tomorrow_deadlines: 0, tomorrow_sessions: 0, tomorrow_first: null, next_eval_title: null, next_eval_at: null });
+    expect(buildDigest(calm, evening).body).toBe("Demain : pas de cours\nRien à faire pour demain\nAujourd'hui : aucune tâche cochée");
+    expect(buildDigest(row({ done_today: 1, tomorrow_sessions: 1 }), evening).body).toContain("Demain : 1 cours dès 08:15\nÀ faire pour demain : 3 tâches\n1 échéance demain\nAujourd'hui : ✓ 1 faite · 2 en attente");
   });
 });
 

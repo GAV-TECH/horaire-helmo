@@ -16,7 +16,8 @@ export type DueReminder = {
   fire_at: string;
 };
 
-export type NotificationPayload = { title: string; body: string; url: string; tag: string };
+/** sticky : la notification reste affichée jusqu'à ce qu'on la ferme (là où le système le permet). */
+export type NotificationPayload = { title: string; body: string; url: string; tag: string; sticky?: boolean };
 
 const TIMEZONE = "Europe/Brussels";
 /** Un rappel en retard de plus de 12 h (panne, serveur arrêté) n'est plus envoyé : il serait trompeur. */
@@ -79,6 +80,11 @@ export type DigestRow = {
   tomorrow_first: string | null;
   next_eval_title: string | null;
   next_eval_at: string | null;
+  // Ajoutés par la migration 0016 (absents tant qu'elle n'est pas exécutée).
+  tomorrow_titles?: string[] | null;
+  unread_messages?: number | null;
+  new_tasks?: number | null;
+  pending_offers?: number | null;
 };
 
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? "s" : ""}`;
@@ -88,25 +94,51 @@ function courseOf(title: string) {
   return title.split(/\s+\/\s+/)[0].replace(/\s*(?::|\s-\s)\s*[ée]valuation\s*$/i, "").trim();
 }
 
-/** Débrief du soir : ce qui a été fait, ce qui reste, et ce qui attend demain. */
+/** Combien de titres de tâches on écrit dans la notification (le reste est résumé en « … et N autres »). */
+const DIGEST_TITLES = 5;
+
+/**
+ * Débrief quotidien, dans l'ordre d'utilité : ce qui attend DEMAIN (cours, liste des tâches,
+ * échéances), puis le bilan d'AUJOURD'HUI (fait / en attente), ce qui est arrivé de NOUVEAU
+ * (messages non lus, tâches reçues) et la prochaine évaluation.
+ */
 export function buildDigest(d: DigestRow, now: Date): NotificationPayload {
   const lines: string[] = [];
-  lines.push(d.done_today > 0 ? `✓ ${plural(d.done_today, "tâche")} faite${d.done_today > 1 ? "s" : ""} aujourd'hui` : "Aucune tâche cochée aujourd'hui");
-  if (d.left_today > 0) lines.push(`${d.left_today} encore à faire`);
   lines.push(
     d.tomorrow_sessions > 0 && d.tomorrow_first
       ? `Demain : ${d.tomorrow_sessions} cours dès ${formatTime(new Date(d.tomorrow_first))}` // "cours" est invariable
       : "Demain : pas de cours",
   );
-  const forTomorrow = [
-    d.tomorrow_tasks > 0 ? plural(d.tomorrow_tasks, "tâche") : null,
-    d.tomorrow_deadlines > 0 ? plural(d.tomorrow_deadlines, "échéance") : null,
+
+  const titles = (d.tomorrow_titles ?? []).slice(0, DIGEST_TITLES);
+  if (d.tomorrow_tasks === 0) lines.push("Rien à faire pour demain");
+  else if (titles.length === 0) lines.push(`À faire pour demain : ${plural(d.tomorrow_tasks, "tâche")}`);
+  else {
+    lines.push(`À faire pour demain (${d.tomorrow_tasks}) :`);
+    for (const title of titles) lines.push(`• ${title.length > 60 ? `${title.slice(0, 59)}…` : title}`);
+    const more = d.tomorrow_tasks - titles.length;
+    if (more > 0) lines.push(`… et ${more} autre${more > 1 ? "s" : ""}`);
+  }
+  if (d.tomorrow_deadlines > 0) lines.push(`${plural(d.tomorrow_deadlines, "échéance")} demain`);
+
+  const today = [
+    d.done_today > 0 ? `✓ ${d.done_today} faite${d.done_today > 1 ? "s" : ""}` : "aucune tâche cochée",
+    d.left_today > 0 ? `${d.left_today} en attente` : null,
   ].filter(Boolean);
-  if (forTomorrow.length) lines.push(`Pour demain : ${forTomorrow.join(" et ")}`);
+  lines.push(`Aujourd'hui : ${today.join(" · ")}`);
+
+  const unread = d.unread_messages ?? 0;
+  const received = (d.new_tasks ?? 0) + (d.pending_offers ?? 0);
+  const news = [
+    unread > 0 ? `${unread} message${unread > 1 ? "s" : ""} non lu${unread > 1 ? "s" : ""}` : null,
+    received > 0 ? `${received} tâche${received > 1 ? "s" : ""} reçue${received > 1 ? "s" : ""}` : null,
+  ].filter(Boolean);
+  if (news.length) lines.push(`Nouveau : ${news.join(" · ")}`);
+
   if (d.next_eval_title && d.next_eval_at) {
     lines.push(`Évaluation de ${courseOf(d.next_eval_title)} ${formatRelative(new Date(d.next_eval_at), now)}`);
   }
-  return { title: "Débrief de ta journée", body: lines.join("\n"), url: "/taches", tag: "debrief" };
+  return { title: "📋 Débrief du jour", body: lines.join("\n"), url: "/taches", tag: "debrief", sticky: true };
 }
 
 /** Construit la notification, ou null s'il ne faut rien envoyer (cible faite/annulée, rappel trop ancien). */

@@ -42,6 +42,8 @@ self.addEventListener("push", (event) => {
       // Sans renotify, une notification qui en remplace une autre (même tag) s'affiche en silence :
       // le 2e message d'une discussion passerait inaperçu.
       renotify: Boolean(data.tag),
+      // Débrief quotidien : reste affiché jusqu'à ce qu'on le ferme (ordinateur ; les téléphones décident eux-mêmes).
+      requireInteraction: Boolean(data.sticky),
       icon: "/icon-192.png",
       badge: "/icon-192.png",
       lang: "fr",

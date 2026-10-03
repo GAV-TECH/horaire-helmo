@@ -168,6 +168,20 @@ Chaque message d'une discussion de projet est notifié (en quelques secondes ave
 
 SQL Editor → *New query* → colle [`supabase/migrations/0014_messages_non_lus.sql`](supabase/migrations/0014_messages_non_lus.sql) → **Run** (après 0008). Chaque carte de l'onglet **Projets** affiche alors le nombre de messages non lus de sa discussion.
 
+## 15. Copie d'une tâche à un étudiant (à faire une fois)
+
+SQL Editor → *New query* → colle [`supabase/migrations/0015_copie_tache.sql`](supabase/migrations/0015_copie_tache.sql) → **Run**. Dans le détail d'une séance de l'horaire, chaque tâche a alors un bouton **↗** : l'étudiant choisi reçoit une proposition (bandeau en haut de l'app) et l'ajoute à ses propres tâches, ou la refuse. Le bouton **✎** modifie le titre.
+
+## 16. Débrief quotidien complet (à faire une fois)
+
+1. SQL Editor → *New query* → colle [`supabase/migrations/0016_debrief_complet.sql`](supabase/migrations/0016_debrief_complet.sql) → **Run** (après 0007, 0008, 0014 et 0015).
+2. Redéploie la fonction d'envoi :
+   ```powershell
+   npx supabase functions deploy send-reminders --project-ref mlxgvpghjhqzfqsuekuw --no-verify-jwt --use-api
+   ```
+
+Le débrief (heure réglée une fois dans **Rappels**, puis envoyé chaque jour) liste les tâches à faire pour demain, les cours et échéances de demain, le bilan d'aujourd'hui, les messages non lus et les tâches reçues.
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire
