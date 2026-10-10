@@ -196,6 +196,12 @@ Notification immédiate quand un étudiant t'envoie la copie d'une tâche, ou te
 
 Chaque débrief envoyé est enregistré : la page **Rappels** affiche les 7 derniers (tâches pour demain, projets avec de nouveaux messages ou documents, avec un lien vers chaque projet). Toucher la notification ouvre cette page.
 
+## 19. Lier une tâche à un cours (à faire une fois)
+
+SQL Editor → *New query* → colle [`supabase/migrations/0019_cours_tache.sql`](supabase/migrations/0019_cours_tache.sql) → **Run**.
+
+Dans **Tâches**, ouvre une tâche : le menu **Cours** propose les cours de ton horaire. La pastille de couleur et le nom du cours s'affichent ensuite sous la tâche.
+
 ## Fonctionnement
 
 ### Synchronisation de l'horaire

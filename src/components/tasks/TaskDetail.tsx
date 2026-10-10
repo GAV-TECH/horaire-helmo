@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { courseColor, sameCourse } from "@/lib/courses";
 import type { TaskEntry } from "@/lib/tasks";
 import { quickDueDates } from "@/lib/tasks";
 import { canEdit } from "@/lib/groups";
@@ -20,12 +21,15 @@ type Props = {
   onToggleMyDay: () => void;
   onSetDue: (date: string) => void;
   onRename: (title: string) => void;
+  /** Cours proposés (ceux de l'horaire) et changement de cours ; absents = pas de choix de cours. */
+  courses?: { key: string; name: string }[];
+  onSetCourse?: (courseName: string) => void;
   onDelete: () => void;
 };
 
 /** Panneau de détail d'une tâche : à droite sur grand écran, plein écran sur téléphone. */
 export function TaskDetail(props: Props) {
-  const { entry, today, error, onClose, onToggleDone, onToggleImportant, onToggleMyDay, onSetDue, onRename, onDelete } = props;
+  const { entry, today, error, onClose, onToggleDone, onToggleImportant, onToggleMyDay, onSetDue, onRename, onDelete, courses = [], onSetCourse } = props;
   const { item, list } = entry;
   const { me, groups } = useGroups();
   const group = groups.find((g) => g.id === list.groupId);
@@ -34,6 +38,9 @@ export function TaskDetail(props: Props) {
   const [picking, setPicking] = useState(false);
   const inMyDay = item.myDay === today;
   const dueDate = item.dueAt ? isoToBrusselsInputs(item.dueAt).date : null;
+  // Cours de la tâche : celui choisi ici, sinon celui de sa liste (liste de cours ou de séance).
+  const course = item.courseName ?? list.courseName ?? "";
+  const known = courses.find((c) => sameCourse(c.name, course));
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-white dark:bg-zinc-900" aria-label="Détail de la tâche">
@@ -112,6 +119,24 @@ export function TaskDetail(props: Props) {
             </div>
           )}
         </Section>
+
+        {onSetCourse && (
+          <Section>
+            <label className="flex items-center gap-2 px-3 py-2.5 text-sm">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: course ? courseColor(course) : "#71717a" }} aria-hidden />
+              Cours
+              <select value={known?.name ?? course} onChange={(e) => onSetCourse(e.target.value)} className={`${inputClass} ml-auto w-auto max-w-[65%] py-1`}>
+                <option value="">Aucun</option>
+                {course && !known && <option value={course}>{course}</option>}
+                {courses.map((c) => (
+                  <option key={c.key} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </Section>
+        )}
 
         <Section>
           <p className="px-3 pt-2.5 text-sm">🔔 Rappels</p>

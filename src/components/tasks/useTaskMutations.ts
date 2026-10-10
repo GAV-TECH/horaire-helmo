@@ -2,7 +2,7 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import type { ActionResult } from "@/lib/actions/context";
-import { quickAddTask, renameTodoItem, setTodoDue, setTodoImportant, setTodoMyDay } from "@/lib/actions/tasks";
+import { quickAddTask, renameTodoItem, setTodoCourse, setTodoDue, setTodoImportant, setTodoMyDay } from "@/lib/actions/tasks";
 import { deleteTodoItem, setTodoDone } from "@/lib/actions/todos";
 import type { TodoList } from "@/lib/data/types";
 import type { TaskEntry } from "@/lib/tasks";
@@ -39,6 +39,8 @@ export function useTaskMutations(serverLists: TodoList[], today: string) {
     setDue: (e: TaskEntry, date: string) =>
       mutate({ itemId: e.item.id, changes: { dueAt: date ? brusselsToIso(date, "23:59") : null } }, () => setTodoDue(e.item.id, date)),
     rename: (e: TaskEntry, title: string) => mutate({ itemId: e.item.id, changes: { title } }, () => renameTodoItem(e.item.id, title)),
+    setCourse: (e: TaskEntry, courseName: string) =>
+      mutate({ itemId: e.item.id, changes: { courseName: courseName || null } }, () => setTodoCourse(e.item.id, courseName)),
     remove: (e: TaskEntry) => mutate(null, () => deleteTodoItem(e.item.id)),
     /** Ajout rapide : dans une liste précise, ou depuis une liste intelligente (view). */
     add: (title: string, view: string, listId?: string) => mutate(null, () => quickAddTask(title, listId ? "liste" : view, listId)),

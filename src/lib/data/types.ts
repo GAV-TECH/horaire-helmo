@@ -27,6 +27,8 @@ export type TodoItem = {
   listId: string;
   authorId: string;
   title: string;
+  /** Cours auquel la tâche est liée (migration 0019), en plus de celui de sa liste. */
+  courseName?: string | null;
   dueAt: string | null;
   position: number;
   /** Faite par MOI. */

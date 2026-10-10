@@ -1,6 +1,6 @@
 "use client";
 
-import { courseColor } from "@/lib/courses";
+import { courseColor, parseCourseTitle } from "@/lib/courses";
 import type { TaskEntry } from "@/lib/tasks";
 import { reminderStatus } from "@/lib/reminders";
 import { useGroups } from "@/components/groups/GroupsContext";
@@ -37,6 +37,14 @@ export function TaskRow({ entry, now, today, selected, showList, showMyDay, onOp
       <span key="list" className="inline-flex items-center gap-1">
         {list.courseKey && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: courseColor(list.courseKey) }} aria-hidden />}
         {list.title}
+      </span>,
+    );
+  }
+  if (item.courseName) {
+    meta.push(
+      <span key="course" className="inline-flex items-center gap-1">
+        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: courseColor(item.courseName) }} aria-hidden />
+        {parseCourseTitle(item.courseName).course}
       </span>,
     );
   }

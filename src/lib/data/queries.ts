@@ -135,6 +135,7 @@ export async function loadTodoLists(supabase: SupabaseClient, userId: string): P
           listId: i.list_id,
           authorId: i.user_id,
           title: i.title,
+          courseName: i.course_name ?? null, // colonne absente avant la migration 0019
           dueAt: isoOrNull(i.due_at),
           position: i.position,
           done: i.todo_completions.some((c) => c.user_id === userId),
@@ -148,6 +149,7 @@ export async function loadTodoLists(supabase: SupabaseClient, userId: string): P
 }
 
 type ItemRow = {
+  course_name?: string | null;
   id: string;
   list_id: string;
   user_id: string;

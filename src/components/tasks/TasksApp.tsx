@@ -39,7 +39,7 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
   const { groups, me, shares } = useGroups();
   const memberName = useMemberName();
   const today = dayKey(now);
-  const { lists, error, toggleDone, toggleImportant, toggleMyDay, setDue, rename, remove: removeTask, add } = useTaskMutations(serverLists, today);
+  const { lists, error, toggleDone, toggleImportant, toggleMyDay, setDue, setCourse, rename, remove: removeTask, add } = useTaskMutations(serverLists, today);
   const [view, setView] = useState<string>("jour");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("tasks");
@@ -291,6 +291,8 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
             onToggleMyDay={() => toggleMyDay(selected)}
             onSetDue={(date) => setDue(selected, date)}
             onRename={(t) => rename(selected, t)}
+            courses={courses}
+            onSetCourse={(c) => setCourse(selected, c)}
             onDelete={() => remove(selected)}
           />
         </div>

@@ -63,6 +63,18 @@ export async function renameTodoItem(itemId: string, title: string): Promise<Act
   return ok();
 }
 
+/** Lie la tâche à un cours (vide = aucun). */
+export async function setTodoCourse(itemId: string, courseName: string): Promise<ActionResult> {
+  const { supabase } = await actionContext();
+  const parsed = z.string().trim().max(300).safeParse(courseName);
+  if (!idSchema.safeParse(itemId).success || !parsed.success) return fail("Cours invalide.");
+  const { data, error } = await supabase.from("todo_items").update({ course_name: parsed.data || null }).eq("id", itemId).select("id");
+  if (error) return dbFail(error, "setTodoCourse");
+  if (!data?.length) return fail("Seuls l'auteur de la tâche, le propriétaire de la liste et les admins peuvent la modifier.");
+  refresh();
+  return ok();
+}
+
 export async function renameTodoList(listId: string, title: string): Promise<ActionResult> {
   const { supabase } = await actionContext();
   const parsed = z.string().trim().min(1, "Le nom ne peut pas être vide.").max(200).safeParse(title);
