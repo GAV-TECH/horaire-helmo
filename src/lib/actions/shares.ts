@@ -132,3 +132,36 @@ export async function removeTaskOffer(offerId: string): Promise<ActionResult> {
   revalidateShares();
   return ok();
 }
+
+/*
+ * Partager UNE tâche avec un étudiant (table todo_item_assignees, migration 0020) : c'est la
+ * même tâche, chacun la coche pour lui, et elle affiche « 1/2 ». Pas d'accord à donner : il
+ * la voit tout de suite et peut se retirer.
+ */
+
+/** Confie une tâche que je vois (dans une de mes listes ou une liste partagée avec moi) à un étudiant. */
+export async function assignTask(itemId: string, studentId: string): Promise<ActionResult> {
+  const { user, supabase } = await actionContext();
+  if (!idSchema.safeParse(itemId).success) return fail("Tâche invalide.");
+  if (!idSchema.safeParse(studentId).success) return fail("Étudiant invalide.");
+  if (studentId === user.id) return fail("Tu participes déjà à cette tâche.");
+  const { error } = await supabase.from("todo_item_assignees").insert({ item_id: itemId, user_id: studentId });
+  if (error?.code === "23505") return fail("Cette tâche est déjà partagée avec cet étudiant.");
+  if (error?.code === "P0001") return fail(error.message); // garde-fou : 10 étudiants maximum
+  if (error?.code === "42501") return fail("Seuls ceux qui voient la liste de la tâche peuvent la partager.");
+  if (error?.code === "42P01") return fail("Le partage d'une tâche demande la migration 0020.");
+  if (error) return dbFail(error, "assignTask");
+  refresh();
+  return ok("Tâche partagée : elle apparaît dans ses tâches.");
+}
+
+/** Retire un étudiant d'une tâche (ou me retire moi-même d'une tâche qu'on m'a confiée). */
+export async function unassignTask(itemId: string, studentId: string): Promise<ActionResult> {
+  const { supabase } = await actionContext();
+  if (!idSchema.safeParse(itemId).success || !idSchema.safeParse(studentId).success) return fail("Partage invalide.");
+  const { data, error } = await supabase.from("todo_item_assignees").delete().eq("item_id", itemId).eq("user_id", studentId).select("item_id");
+  if (error) return dbFail(error, "unassignTask");
+  if (!data?.length) return fail("Tu ne peux pas retirer cet étudiant.");
+  refresh();
+  return ok();
+}

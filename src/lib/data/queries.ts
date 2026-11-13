@@ -113,11 +113,11 @@ export async function loadTodoLists(supabase: SupabaseClient, userId: string): P
   const { data, error } = await supabase
     .from("todo_lists")
     // todo_item_flags : le RLS ne renvoie que MES marqueurs (étoile, Ma journée).
-    .select("*, todo_items(*, todo_completions(user_id), todo_item_flags(user_id, important, my_day))")
+    .select(`*, todo_items(${ITEM_COLUMNS})`)
     .order("created_at");
   if (error) throw dbError(error as { message: string; code?: string }, "todo_lists");
 
-  return (data ?? []).map((l) => ({
+  const lists: TodoList[] = (data ?? []).map((l) => ({
     id: l.id,
     ownerId: l.user_id,
     groupId: l.group_id,
@@ -127,26 +127,80 @@ export async function loadTodoLists(supabase: SupabaseClient, userId: string): P
     courseKey: l.course_key,
     sessionKey: l.session_key,
     sessionStart: isoOrNull(l.session_start),
-    items: ((l.todo_items ?? []) as ItemRow[])
-      .map((i): TodoItem => {
-        const flags = (i.todo_item_flags ?? []).find((f) => f.user_id === userId);
-        return {
-          id: i.id,
-          listId: i.list_id,
-          authorId: i.user_id,
-          title: i.title,
-          courseName: i.course_name ?? null, // colonne absente avant la migration 0019
-          dueAt: isoOrNull(i.due_at),
-          position: i.position,
-          done: i.todo_completions.some((c) => c.user_id === userId),
-          doneBy: i.todo_completions.map((c) => c.user_id),
-          important: flags?.important ?? false,
-          myDay: flags?.my_day ?? null,
-        };
-      })
-      .sort((a, b) => a.position - b.position || a.title.localeCompare(b.title)),
+    items: sortItems(((l.todo_items ?? []) as ItemRow[]).map((i) => toItem(i, userId))),
   }));
+  return withAssignees(supabase, userId, lists);
 }
+
+const ITEM_COLUMNS = "*, todo_completions(user_id), todo_item_flags(user_id, important, my_day)";
+
+const sortItems = (items: TodoItem[]) => items.sort((a, b) => a.position - b.position || a.title.localeCompare(b.title));
+
+function toItem(i: ItemRow, userId: string): TodoItem {
+  const flags = (i.todo_item_flags ?? []).find((f) => f.user_id === userId);
+  return {
+    id: i.id,
+    listId: i.list_id,
+    authorId: i.user_id,
+    title: i.title,
+    courseName: i.course_name ?? null, // colonne absente avant la migration 0019
+    dueAt: isoOrNull(i.due_at),
+    position: i.position,
+    done: i.todo_completions.some((c) => c.user_id === userId),
+    doneBy: i.todo_completions.map((c) => c.user_id),
+    important: flags?.important ?? false,
+    myDay: flags?.my_day ?? null,
+  };
+}
+
+/** Identifiant de la liste « Tâches partagées avec moi » (fabriquée par l'app, pas en base). */
+export const ASSIGNED_LIST_ID = "partagees";
+
+/**
+ * Tâches partagées une par une (migration 0020) : ajoute à chaque tâche ses étudiants, et
+ * range dans une liste « Tâches partagées avec moi » celles qu'on m'a confiées sans que je
+ * voie leur liste. Requête séparée : si la migration n'est pas encore exécutée, la page
+ * continue de fonctionner (sans partage par tâche) au lieu de planter.
+ */
+async function withAssignees(supabase: SupabaseClient, userId: string, lists: TodoList[]): Promise<TodoList[]> {
+  const { data, error } = await supabase.from("todo_item_assignees").select("item_id, user_id, user_name, author_name");
+  if (error || !data?.length) return lists;
+  const rows = data as AssigneeRow[];
+
+  const byItem = new Map<string, AssigneeRow[]>();
+  for (const r of rows) byItem.set(r.item_id, [...(byItem.get(r.item_id) ?? []), r]);
+  const decorate = (item: TodoItem): TodoItem => {
+    const found = byItem.get(item.id);
+    if (!found) return item;
+    return { ...item, assignees: found.map((r) => ({ userId: r.user_id, name: r.user_name })), authorName: found[0].author_name };
+  };
+  const decorated = lists.map((l) => ({ ...l, items: l.items.map(decorate) }));
+
+  // Tâches qu'on m'a confiées et que je n'ai pas encore (leur liste ne m'est pas partagée).
+  const known = new Set(decorated.flatMap((l) => l.items.map((i) => i.id)));
+  const missing = rows.filter((r) => r.user_id === userId && !known.has(r.item_id)).map((r) => r.item_id);
+  if (missing.length === 0) return decorated;
+  const { data: items, error: itemsError } = await supabase.from("todo_items").select(ITEM_COLUMNS).in("id", missing);
+  if (itemsError) throw dbError(itemsError as { message: string; code?: string }, "todo_items partagées");
+  if (!items?.length) return decorated;
+
+  const assigned: TodoList = {
+    id: ASSIGNED_LIST_ID,
+    ownerId: "",
+    groupId: null,
+    title: "Tâches partagées avec moi",
+    scope: "global",
+    courseName: null,
+    courseKey: null,
+    sessionKey: null,
+    sessionStart: null,
+    virtual: true,
+    items: sortItems((items as ItemRow[]).map((i) => decorate(toItem(i, userId)))),
+  };
+  return [...decorated, assigned];
+}
+
+type AssigneeRow = { item_id: string; user_id: string; user_name: string; author_name: string };
 
 type ItemRow = {
   course_name?: string | null;

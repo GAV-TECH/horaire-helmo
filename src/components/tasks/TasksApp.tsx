@@ -86,7 +86,9 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
   // Les listes de séance n'apparaissent que dans la vue Séances (il y en a une par séance).
   const isPlainList = (l: TodoList) => l.scope !== "session" && l.scope !== "project";
   const privateLists = lists.filter((l) => isPlainList(l) && l.ownerId === me);
-  const sharedLists = lists.filter((l) => isPlainList(l) && l.ownerId !== me);
+  const sharedLists = lists.filter((l) => isPlainList(l) && l.ownerId !== me && !l.virtual);
+  // Tâches qu'un étudiant m'a confiées une par une (sans sa liste).
+  const assignedList = lists.find((l) => l.virtual) ?? null;
   // Une de mes listes est partagée : avec un groupe, ou avec un étudiant (elle seule, ou toutes mes tâches).
   const sharesAll = shares.some((s) => s.ownerId === me && s.listId === null);
   // Nom du propriétaire d'une liste partagée avec moi (deux listes « Tâches » restent distinguables).
@@ -155,6 +157,10 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
         {sharedLists.map((l) => (
           <NavItem key={l.id} active={view === l.id} onClick={() => openView(l.id)} icon={<ListDot list={l} />} label={`${l.title} · ${ownerName(l.ownerId)}`} count={openCount(l.id)} badge="👥" />
         ))}
+        {assignedList && sharedLists.length === 0 && <NavTitle>Partagées avec moi</NavTitle>}
+        {assignedList && (
+          <NavItem active={view === assignedList.id} onClick={() => openView(assignedList.id)} icon="☰" label={assignedList.title} count={openCount(assignedList.id)} badge="👥" />
+        )}
         {projects.length > 0 && <NavTitle>Projets</NavTitle>}
         {projects.map((l) => (
           <NavItem key={l.id} active={view === l.id} onClick={() => openView(l.id)} icon="◆" label={l.title} count={openCount(l.id)} badge={l.groupId ? "👥" : undefined} />
@@ -184,7 +190,7 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
             ‹ Listes
           </button>
           <h1 className="mr-auto text-2xl font-bold tracking-tight">{title}</h1>
-          {currentList && <ListMenu list={currentList} onDeleted={() => openView("jour")} />}
+          {currentList && !currentList.virtual && <ListMenu list={currentList} onDeleted={() => openView("jour")} />}
           <p className="w-full text-sm text-zinc-500">
             {view === "jour" && new Intl.DateTimeFormat("fr-BE", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Brussels" }).format(now)}
             {currentList?.courseName && currentList.scope === "course" && currentList.courseName}
@@ -197,7 +203,7 @@ export function TasksApp({ lists: serverLists, courses, now }: Props) {
         </header>
 
         {view === "toutes" && <ShareAll />}
-        {view !== "seances" && (
+        {view !== "seances" && !currentList?.virtual && (
           <form onSubmit={addTask} className="mx-4 mb-2 flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-white px-3 focus-within:border-blue-500 md:mx-6 dark:border-zinc-800 dark:bg-zinc-900">
             <span aria-hidden className="text-xl leading-none text-blue-600 dark:text-blue-400">
               ＋

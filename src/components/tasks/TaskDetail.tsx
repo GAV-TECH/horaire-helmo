@@ -10,6 +10,7 @@ import { useGroups } from "@/components/groups/GroupsContext";
 import { ReminderControl } from "@/components/reminders/ReminderControl";
 import { formatDue, formatSessionDate } from "@/components/items/format";
 import { buttonClass, inputClass } from "@/components/styles";
+import { TaskPeople } from "./TaskPeople";
 
 type Props = {
   entry: TaskEntry;
@@ -36,6 +37,8 @@ export function TaskDetail(props: Props) {
   const canDelete = canEdit(list, me, groups) || item.authorId === me;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [picking, setPicking] = useState(false);
+  // Tâche qu'on m'a confiée sans sa liste : je la coche, mais seul son auteur la modifie (RLS).
+  const readOnly = list.virtual === true;
   const inMyDay = item.myDay === today;
   const dueDate = item.dueAt ? isoToBrusselsInputs(item.dueAt).date : null;
   // Cours de la tâche : celui choisi ici, sinon celui de sa liste (liste de cours ou de séance).
@@ -63,6 +66,7 @@ export function TaskDetail(props: Props) {
         <textarea
           key={item.id}
           defaultValue={item.title}
+          readOnly={readOnly}
           rows={2}
           maxLength={300}
           aria-label="Titre de la tâche"
@@ -96,6 +100,7 @@ export function TaskDetail(props: Props) {
             ▦ Échéance
             <span className="ml-auto text-xs text-zinc-500">{item.dueAt ? formatDue(item.dueAt) : "aucune"}</span>
           </div>
+          {!readOnly && (
           <div className="flex flex-wrap gap-1.5 px-3 pb-3 pt-2">
             {quickDueDates(today).map((q) => (
               <Chip key={q.label} pressed={dueDate === q.date} onClick={() => onSetDue(q.date)}>
@@ -107,6 +112,8 @@ export function TaskDetail(props: Props) {
             </Chip>
             {item.dueAt && <Chip onClick={() => onSetDue("")}>Retirer</Chip>}
           </div>
+          )}
+          {readOnly && <div className="pb-2.5" />}
           {picking && (
             <div className="px-3 pb-3">
               <input
@@ -120,7 +127,9 @@ export function TaskDetail(props: Props) {
           )}
         </Section>
 
-        {onSetCourse && (
+        <TaskPeople key={item.id} entry={entry} />
+
+        {onSetCourse && !readOnly && (
           <Section>
             <label className="flex items-center gap-2 px-3 py-2.5 text-sm">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: course ? courseColor(course) : "#71717a" }} aria-hidden />
@@ -174,7 +183,8 @@ export function TaskDetail(props: Props) {
 
       <footer className="flex items-center gap-2 border-t border-zinc-200 px-4 py-3 text-xs text-zinc-500 dark:border-zinc-800">
         <span className="mr-auto truncate">
-          Dans « {list.title} »{list.scope === "session" && list.sessionStart && ` · séance du ${formatSessionDate(list.sessionStart)}`}
+          {readOnly ? `Partagée par ${item.authorName || "un étudiant"}` : `Dans « ${list.title} »`}
+          {list.scope === "session" && list.sessionStart && ` · séance du ${formatSessionDate(list.sessionStart)}`}
         </span>
         {canDelete &&
           (confirmDelete ? (
