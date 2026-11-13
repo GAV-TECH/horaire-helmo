@@ -148,3 +148,18 @@ export function quickDueDates(today: string): { label: string; date: string }[] 
     { label: "Lundi prochain", date: shiftDay(today, toMonday) },
   ];
 }
+
+export type TaskParticipant = { userId: string; name: string; done: boolean };
+
+/**
+ * Avancement d'une tâche partagée une par une (migration 0020) : l'auteur + les étudiants
+ * à qui elle est confiée, et qui l'a cochée. null si elle n'est confiée à personne.
+ * « 1/2 » = done / total. Les coches d'un étudiant retiré ne comptent plus.
+ */
+export function taskProgress(item: TodoItem): { done: number; total: number; participants: TaskParticipant[] } | null {
+  const assignees = item.assignees ?? [];
+  if (assignees.length === 0) return null;
+  const people = [{ userId: item.authorId, name: item.authorName || "Auteur" }, ...assignees.filter((a) => a.userId !== item.authorId)];
+  const participants = people.map((p) => ({ ...p, done: item.doneBy.includes(p.userId) }));
+  return { done: participants.filter((p) => p.done).length, total: participants.length, participants };
+}

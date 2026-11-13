@@ -37,7 +37,16 @@ export type TodoItem = {
   /** Marqueurs PERSONNELS (même sur une tâche partagée) : étoile, et jour "Ma journée" (AAAA-MM-JJ). */
   important: boolean;
   myDay: string | null;
+  /**
+   * Étudiants à qui la tâche est confiée (migration 0020). Vide = pas partagée tâche par tâche.
+   * Avec l'auteur, ils forment les participants du « 1/2 ». Facultatif : absent avant 0020.
+   */
+  assignees?: TaskAssignee[];
+  /** Nom de l'auteur, connu seulement quand la tâche est partagée (copié par le serveur). */
+  authorName?: string;
 };
+
+export type TaskAssignee = { userId: string; name: string };
 
 export type TodoList = Shareable & {
   id: string;
@@ -48,6 +57,11 @@ export type TodoList = Shareable & {
   sessionKey: string | null;
   sessionStart: string | null;
   items: TodoItem[];
+  /**
+   * Liste « Tâches partagées avec moi » fabriquée par l'app : les tâches qu'un étudiant m'a
+   * confiées sans me partager sa liste. On ne peut rien y ajouter, ni la renommer.
+   */
+  virtual?: boolean;
 };
 
 export type ReminderTarget = "session" | "deadline" | "todo";

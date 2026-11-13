@@ -7,6 +7,7 @@ import { useGroups } from "@/components/groups/GroupsContext";
 import { useTargetReminders } from "@/components/reminders/RemindersContext";
 import { formatDue } from "@/components/items/format";
 import { doneSummary } from "@/lib/groups";
+import { taskProgress } from "@/lib/tasks";
 
 type Props = {
   entry: TaskEntry;
@@ -29,7 +30,13 @@ export function TaskRow({ entry, now, today, selected, showList, showMyDay, onOp
   const pendingReminders = reminders.filter((r) => reminderStatus(r, now) === "pending" && !r.muted).length;
   const overdue = !item.done && item.dueAt !== null && Date.parse(item.dueAt) < now;
   const group = groups.find((g) => g.id === list.groupId);
-  const shared = group ? doneSummary(item.doneBy, group.members) : null;
+  // Tâche partagée avec des étudiants précis (« 1/2 ») ; sinon, liste d'un groupe : tous ses membres.
+  const progress = taskProgress(item);
+  const shared = progress
+    ? { done: progress.done, total: progress.total, names: progress.participants.filter((p) => p.done).map((p) => p.name) }
+    : group
+      ? doneSummary(item.doneBy, group.members)
+      : null;
 
   const meta: React.ReactNode[] = [];
   if (showList) {

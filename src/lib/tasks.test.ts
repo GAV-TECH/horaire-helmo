@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TodoItem, TodoList } from "./data/types";
-import { dayLabel, flattenTasks, groupTasksByDay, isOverdue, jourSection, nextTaskDay, quickDueDates, sortTasks, splitOverdue, tasksForView } from "./tasks";
+import { dayLabel, flattenTasks, groupTasksByDay, isOverdue, jourSection, nextTaskDay, quickDueDates, sortTasks, splitOverdue, taskProgress, tasksForView } from "./tasks";
 
 const item = (id: string, over: Partial<TodoItem> = {}): TodoItem => ({
   id, listId: "l", authorId: "me", title: id, dueAt: null, position: 0, done: false, doneBy: [], important: false, myDay: null, ...over,
@@ -109,5 +109,29 @@ describe("dates rapides", () => {
     expect(quickDueDates("2025-10-08").map((d) => d.date)).toEqual(["2025-10-08", "2025-10-09", "2025-10-13"]);
     expect(quickDueDates("2025-10-06")[2].date).toBe("2025-10-13"); // un lundi → le lundi d'après
     expect(quickDueDates("2025-10-12")[2].date).toBe("2025-10-13"); // un dimanche → le lendemain
+  });
+});
+
+describe("tâche partagée avec un étudiant", () => {
+  it("n'affiche rien tant que la tâche n'est confiée à personne", () => {
+    expect(taskProgress(item("a"))).toBeNull();
+    expect(taskProgress(item("a", { assignees: [] }))).toBeNull();
+  });
+
+  it("compte l'auteur et l'étudiant : 1/2 quand l'un des deux l'a cochée", () => {
+    const shared = item("a", { authorId: "moi", authorName: "Gilles", assignees: [{ userId: "lea", name: "Léa" }] });
+    expect(taskProgress(shared)).toMatchObject({ done: 0, total: 2 });
+    const p = taskProgress({ ...shared, doneBy: ["lea"] });
+    expect(p).toMatchObject({ done: 1, total: 2 });
+    expect(p?.participants).toEqual([
+      { userId: "moi", name: "Gilles", done: false },
+      { userId: "lea", name: "Léa", done: true },
+    ]);
+    expect(taskProgress({ ...shared, doneBy: ["lea", "moi"] })).toMatchObject({ done: 2, total: 2 });
+  });
+
+  it("ignore la coche d'un étudiant qui ne participe plus", () => {
+    const shared = item("a", { authorId: "moi", assignees: [{ userId: "lea", name: "Léa" }], doneBy: ["ancien"] });
+    expect(taskProgress(shared)).toMatchObject({ done: 0, total: 2 });
   });
 });
